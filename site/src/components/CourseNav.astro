@@ -1,5 +1,6 @@
 ---
 import type { MarkdownHeading } from 'astro'
+import { withBase } from '../utils/url'
 
 interface Props {
   title: string
@@ -13,7 +14,7 @@ const sections = headings.filter((heading) => heading.depth === 2)
 ---
 
 <aside class="course-sidebar">
-  <a class="back-link" href="/">‹ 返回课程</a>
+  <a class="back-link" href={withBase()}>‹ 返回课程</a>
   <div class="sidebar-meta">
     <span>课程 {String(order).padStart(2, '0')}</span>
     <strong>{title}</strong>

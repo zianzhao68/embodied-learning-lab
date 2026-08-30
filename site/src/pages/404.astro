@@ -1,11 +1,12 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro'
+import { withBase } from '../utils/url'
 ---
 <BaseLayout title="页面未找到">
   <main class="roadmap-page">
     <div class="eyebrow">404</div>
     <h1>页面暂时不在这里</h1>
     <p class="roadmap-intro">课程地址可能已调整，返回课程首页继续学习。</p>
-    <a class="button primary" href="/">返回首页 →</a>
+    <a class="button primary" href={withBase()}>返回首页 →</a>
   </main>
 </BaseLayout>

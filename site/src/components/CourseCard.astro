@@ -1,4 +1,6 @@
 ---
+import { withBase } from '../utils/url'
+
 interface Props {
   id: string
   order: number
@@ -12,7 +14,7 @@ interface Props {
 const { id, order, phase, title, description, duration, level, tags } = Astro.props
 ---
 
-<a class="course-card" href={`/courses/${id}/`} data-course-card={id}>
+<a class="course-card" href={withBase(`courses/${id}/`)} data-course-card={id}>
   <div class="card-top"><span class="course-no">{String(order).padStart(2, '0')}</span><span class="status">{level}</span></div>
   <span class="phase">{phase}</span><h3>{title}</h3><p>{description}</p>
   <div class="tags">{tags.map((tag) => <span>{tag}</span>)}</div>

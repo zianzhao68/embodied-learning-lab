@@ -2,6 +2,7 @@
 import { getCollection } from 'astro:content'
 import BaseLayout from '../layouts/BaseLayout.astro'
 import CourseCard from '../components/CourseCard.astro'
+import { withBase } from '../utils/url'
 
 const courses = (await getCollection('courses', ({ data }) => data.published))
   .sort((a, b) => a.data.order - b.data.order)
@@ -14,8 +15,8 @@ const courses = (await getCollection('courses', ({ data }) => data.published))
       <h1>从空间直觉出发，<br /><em>构建完整的具身能力链。</em></h1>
       <p>面向具身算法工程师的项目制课程。每一课都包含清晰公式、原理图解、工程映射与即时测试。</p>
       <div class="hero-actions">
-        <a class="button primary" href={`/courses/${courses[0].data.slug}/`}>开始第一课 <span aria-hidden="true">→</span></a>
-        <a class="button ghost" href="/roadmap/">查看学习路径</a>
+        <a class="button primary" href={withBase(`courses/${courses[0].data.slug}/`)}>开始第一课 <span aria-hidden="true">→</span></a>
+        <a class="button ghost" href={withBase('roadmap/')}>查看学习路径</a>
       </div>
       <div class="stats">
         <div><strong>{courses.length}</strong><span>已发布课程</span></div>
