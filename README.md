@@ -78,14 +78,16 @@ npm run dev
 ## 5. 当前状态（每次会话优先读取）
 
 - 当前阶段：阶段 1——机器人基础
-- 当前周：第 1 周——坐标系与刚体变换
-- 当前知识点：01 坐标系、旋转和平移的统一表达
-- 当前状态：Astro 主站已推送至公开 GitHub 仓库；GitHub Pages 工作流已加入，支持项目子路径和未来自定义域名
-- 当前课程：`site/src/content/courses/01-coordinate-frames.mdx`，本地路由 `/courses/coordinate-frames/`
+- 当前周：第 1～2 周——空间表示
+- 当前知识点：02 SO(3)、欧拉角、轴角与四元数
+- 当前状态：Astro 主站已通过 GitHub Pages 公网发布；第二课正文、3 张 SVG 和 10 道测试已完成，等待学习者正式学习
+- 当前课程：01 `coordinate-frames`；02 `rotation-representations`
 - GitHub 仓库：`https://github.com/zianzhao68/embodied-learning-lab`
-- 网页预览：`site/preview-astro-desktop.png`、`site/preview-astro-production-mobile.png`
-- 下一步：用户在 GitHub `Settings → Pages` 将 Source 设为 `GitHub Actions`；检查部署结果和手机公网访问
-- 阻塞项：首次 Actions 运行在 `Setup Pages` 阶段失败，因为仓库 Pages 尚未在网页端启用；启用后重新运行即可。自定义域名尚未准备，不影响默认 Pages 地址
+- 公网地址：`https://zianzhao68.github.io/embodied-learning-lab/`
+- 第二课本地路由：`/courses/rotation-representations/`
+- 网页预览：`site/preview-course-02-desktop.png`、`site/preview-course-02-mobile.png`、`site/preview-course-02-mobile-diagram.png`
+- 下一步：学习第二课并完成测试；随后实现 NumPy/PyTorch 旋转转换与性质测试，形成第 1～2 周代码产出
+- 阻塞项：尚未用真实手机网络记录公网首屏体验；真实机器人尚未到位，不影响当前学习
 
 ## 6. 掌握度看板
 
@@ -115,7 +117,8 @@ npm run dev
 | 2026-08-30 | 补充右手定则与观察方向 | 说明右手坐标系、拇指/四指判断法、从 ±轴两端观察的视觉差异，以及 x/y/z 三轴 +90° 方向；增加三联 SVG 和 2 道测试 | 构建通过、审计 0 漏洞；章节截图检查通过；题目增至 10 道 | 课程时长调整为 90–120 分钟 | 阅读新增内容并完成测试 |
 | 2026-08-30 | 调研手机适配与公网发布 | 完成 Astro/现有 Vite/文档框架对比，以及 GitHub Pages、EdgeOne Makers、Cloudflare Pages、Vercel 等方案调研；形成 ADR-001 | 官方配额、Git 部署和域名/备案规则已核查 | 提议从 Vite SPA 迁移 Astro；先零成本 GitHub Pages，国内长期用 EdgeOne + 域名 | 用户确认公开仓库和域名条件后实施 |
 | 2026-08-30 | 主站迁移到 Astro | 新建 `site/` 主站；迁移第一课、KaTeX、SVG、10 题测试、首页和路线；增加 Content Collections schema、静态课程路由、移动端折叠目录和课程模板 | `astro check` 0 错误/0 警告/0 提示；静态构建 4 页；审计 0 漏洞；390px 无横向溢出；测试交互 10/10 验证通过 | 为避免破坏性覆盖，旧版 `web/` 保留，`site/` 成为主站 | 配置代码托管和公网发布 |
-| 2026-08-30 | GitHub 首次发布与 Pages 配置 | 初始化 Git、合并远程 LICENSE、推送完整项目；增加 GitHub Pages Actions 工作流和 Astro base path 适配 | 代码推送成功；本地 Pages 子路径构建通过；首次 Actions 在 `Setup Pages` 失败，原因为仓库 Pages 尚未启用 | 仓库条件变更为可公开，因此恢复 GitHub Pages 首发方案 | 网页端将 Pages Source 设为 GitHub Actions，再重新运行工作流 |
+| 2026-08-30 | GitHub 首次发布与 Pages 配置 | 初始化 Git、合并远程 LICENSE、推送完整项目；增加 GitHub Pages Actions 工作流和 Astro base path 适配 | Pages 工作流重新运行成功；默认公网地址 HTTP 200 | 仓库条件变更为可公开，因此恢复 GitHub Pages 首发方案 | 使用真实手机网络验收公网体验 |
+| 2026-08-30 | 制作第二课《三维旋转表示》 | 讲解 SO(3)、ZYX 欧拉角、万向节锁、Rodrigues 公式、轴角、四元数双覆盖、复合和 SLERP；新增 3 张 SVG 与 10 道测试 | `astro check` 0 错误/0 警告/0 提示；构建 5 页；审计 0 漏洞；1440px/390px 无页面溢出；图像加载正常；测试自动验收 10/10 | 为保证手机图中文字清晰，第二课宽图在移动端改为图卡内部横向滚动 | 推送 GitHub 并验证 Pages；学习者完成第二课测试 |
 
 ## 8. 会话恢复协议
 

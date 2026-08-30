@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="500" viewBox="0 0 960 500">
+  <defs><marker id="blue" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0L9 4.5L0 9Z" fill="#3568d4"/></marker><marker id="red" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0L9 4.5L0 9Z" fill="#dc4f42"/></marker></defs>
+  <rect width="960" height="500" rx="22" fill="#f8faf8"/>
+  <text x="36" y="46" font-family="sans-serif" font-size="24" font-weight="700" fill="#17201d">轴角到四元数：角度为什么要除以 2？</text>
+  <text x="36" y="75" font-family="sans-serif" font-size="14" fill="#69726e">三维旋转 θ 被编码到四维单位球面上的半角 θ/2。</text>
+  <rect x="34" y="104" width="410" height="350" rx="17" fill="#fff" stroke="#d9dfda"/>
+  <text x="58" y="138" font-family="sans-serif" font-size="18" font-weight="700" fill="#17201d">轴角：绕单位轴 u 转 θ</text>
+  <line x1="235" y1="390" x2="235" y2="164" stroke="#3568d4" stroke-width="7" marker-end="url(#blue)"/>
+  <text x="250" y="178" font-family="sans-serif" font-size="18" fill="#2859bd">单位轴 u</text>
+  <path d="M135 308 A110 70 0 1 0 328 245" fill="none" stroke="#dc4f42" stroke-width="6" marker-end="url(#red)"/>
+  <text x="330" y="254" font-family="serif" font-size="23" fill="#b84035">θ</text>
+  <text x="72" y="422" font-family="sans-serif" font-size="14" fill="#69726e">轴决定方向，角决定旋转量。</text>
+  <rect x="494" y="104" width="432" height="350" rx="17" fill="#fff" stroke="#d9dfda"/>
+  <text x="518" y="138" font-family="sans-serif" font-size="18" font-weight="700" fill="#17201d">单位四元数（标量在前）</text>
+  <text x="538" y="203" font-family="serif" font-size="25" fill="#17201d">q = ( w, v )</text>
+  <text x="538" y="250" font-family="serif" font-size="25" fill="#17201d">w = cos(θ / 2)</text>
+  <text x="538" y="297" font-family="serif" font-size="25" fill="#17201d">v = u sin(θ / 2)</text>
+  <line x1="532" y1="325" x2="882" y2="325" stroke="#d9dfda"/>
+  <text x="538" y="361" font-family="sans-serif" font-size="15" fill="#176b52">‖q‖ = 1，位于四维单位球面 S³</text>
+  <text x="538" y="393" font-family="sans-serif" font-size="15" fill="#69726e">q 和 −q 对应同一个三维旋转</text>
+  <text x="538" y="425" font-family="sans-serif" font-size="14" fill="#b26b23">比较/插值前要先处理符号分支。</text>
+</svg>

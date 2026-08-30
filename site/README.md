@@ -14,6 +14,10 @@ npm run dev
 
 第一课：`http://localhost:4321/courses/coordinate-frames/`
 
+第二课：`http://localhost:4321/courses/rotation-representations/`
+
+公网地址：`https://zianzhao68.github.io/embodied-learning-lab/`
+
 ## 验证与构建
 
 ```powershell
@@ -42,4 +46,4 @@ npm run preview
 - 原生 TypeScript 交互，不引入整站前端框架
 - 学习进度暂存 `localStorage`
 
-公网部署等待自定义域名准备完成后配置；仓库保持私有。
+公网使用 GitHub Pages，由 `.github/workflows/pages.yml` 在 `main` 更新后自动部署。Astro 的 `base` 由工作流传入，以适配 `/embodied-learning-lab/` 项目子路径。自定义域名为后续可选项。

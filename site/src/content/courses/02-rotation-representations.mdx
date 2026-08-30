@@ -1,0 +1,448 @@
+---
+title: 三维旋转表示：从欧拉角到四元数
+slug: rotation-representations
+order: 2
+phase: 机器人基础
+description: 理解 SO(3)、欧拉角、轴角和四元数之间的关系，学会选择、转换、组合与诊断旋转表示。
+duration: 100–130 分钟
+level: 基础
+tags:
+  - SO(3)
+  - 欧拉角
+  - 四元数
+published: true
+---
+
+# 三维旋转表示：从欧拉角到四元数
+
+<div class="lead">相机给出四元数，ROS 消息把字段写成 x、y、z、w，调试界面却显示 roll、pitch、yaw。它们描述的是同一个姿态，但如果顺序、方向或约定错一个，机械臂就可能朝完全不同的方向运动。</div>
+
+## 本课目标
+
+完成本课后，你应该能够：
+
+- 判断一个矩阵是否属于旋转群 $\mathrm{SO}(3)$；
+- 解释 ZYX 欧拉角的乘法顺序和万向节锁；
+- 用 Rodrigues 公式把轴角转换为旋转矩阵；
+- 从轴角构造单位四元数，并解释半角与 $\mathbf{q}\sim-\mathbf{q}$；
+- 正确进行旋转复合、误差计算和姿态插值；
+- 在 ROS2、视觉模型与深度学习代码之间排查约定问题。
+
+## 先备知识
+
+需要完成第一课《坐标系与刚体变换》，特别是：
+
+- 右手定则和旋转正方向；
+- 旋转矩阵三列的几何意义；
+- 列向量与矩阵从右向左作用；
+- ${}^{\mathrm{A}}\mathbf{R}_{\mathrm{B}}$ 表示把 B 系表达转换到 A 系。
+
+> **本课统一约定**：使用右手坐标系和列向量。带坐标系上下标的 ${}^{\mathrm{A}}\mathbf{R}_{\mathrm{B}}$ 延续第一课，表示 B 系表达转换到 A 系；为突出不同姿态参数化，本课不带坐标系上下标的 $\mathbf{R}$、$\mathbf{q}$ 表示在同一坐标系内主动旋转物体或向量。四元数统一写成标量在前的 $\mathbf{q}=(w,x,y,z)$。接入库或消息时必须重新检查约定。
+
+## 01 · 一个姿态，为什么有多种表示
+
+旋转本身只有 3 个自由度，但我们可以使用不同数量的参数描述它：
+
+| 表示 | 参数数量 | 约束/问题 | 适合场景 |
+|---|---:|---|---|
+| 旋转矩阵 | 9 | 需要满足正交性和行列式为 1 | 变换向量、复合、推导 |
+| 欧拉角 | 3 | 顺序相关，存在奇异点 | 人机界面、日志阅读 |
+| 轴角 | 4 | 旋转轴须为单位向量 | 几何解释、旋转误差 |
+| 四元数 | 4 | 单位范数，正负二义性 | 插值、传输、优化状态 |
+
+<figure class="diagram-card wide-diagram">
+  <img src="../../assets/02-rotation-representations.svg" alt="同一个末端姿态分别使用旋转矩阵、欧拉角、轴角和单位四元数表示" />
+  <figcaption>表示方法不是不同的旋转，而是描述同一个旋转的不同坐标语言。</figcaption>
+</figure>
+
+<div class="insight"><strong>选择原则：</strong>不要问“哪种表示最好”，而要问“当前操作是什么”。应用到向量用矩阵，给人看用欧拉角，解释最短旋转用轴角，插值和状态传输常用四元数。</div>
+
+## 02 · SO(3)：合法旋转矩阵的集合
+
+所有三维旋转矩阵组成特殊正交群：
+
+<div class="formula-focus">
+
+$$
+\mathrm{SO}(3)
+=
+\left\{
+\mathbf{R}\in\mathbb R^{3\times3}
+\mid
+\mathbf{R}^{\mathsf T}\mathbf{R}=\mathbf{I}_3,
+\ \det(\mathbf{R})=1
+\right\}
+$$
+
+</div>
+
+两个条件分别保证：
+
+1. $\mathbf{R}^{\mathsf T}\mathbf{R}=\mathbf{I}_3$：三个轴保持单位长度且互相垂直；
+2. $\det(\mathbf{R})=1$：保持右手性，排除镜像反射。
+
+如果只有正交条件而 $\det(\mathbf{R})=-1$，矩阵描述的是反射或“旋转加反射”，不属于 $\mathrm{SO}(3)$。
+
+### 为什么它叫“群”
+
+因为合法旋转满足：
+
+- 单位旋转 $\mathbf{I}_3$ 仍是合法旋转；
+- 两个旋转复合 $\mathbf{R}_1\mathbf{R}_2$ 仍是合法旋转；
+- 每个旋转都有逆 $\mathbf{R}^{-1}=\mathbf{R}^{\mathsf T}$；
+- 复合满足结合律。
+
+但旋转通常不可交换：
+
+$$
+\mathbf{R}_x\mathbf{R}_y\ne\mathbf{R}_y\mathbf{R}_x
+$$
+
+机器人先低头再转身，与先转身再低头，末端方向通常不同。
+
+<div class="warning"><strong>网络输出不是自动合法：</strong>神经网络直接预测 9 个数，通常不能保证它们落在 $\mathrm{SO}(3)$ 上。训练或推理阶段需要专门参数化，或使用 SVD/Gram–Schmidt 等方法投影回合法旋转。</div>
+
+## 03 · 欧拉角：容易读，但必须带着顺序
+
+欧拉角通过连续三次绕轴旋转表达姿态。机器人中常见 ZYX 约定：
+
+- roll：绕 x 轴，记为 $\phi$；
+- pitch：绕 y 轴，记为 $\theta$；
+- yaw：绕 z 轴，记为 $\psi$。
+
+采用本课的列向量约定：
+
+<div class="formula-focus">
+
+$$
+\mathbf{R}
+=
+\mathbf{R}_z(\psi)\,
+\mathbf{R}_y(\theta)\,
+\mathbf{R}_x(\phi)
+$$
+
+</div>
+
+矩阵从右向左作用，所以一个向量先经历 roll，再经历 pitch，最后经历 yaw。
+
+<figure class="diagram-card wide-diagram">
+  <img src="../../assets/02-euler-gimbal-lock.svg" alt="ZYX 欧拉角的三个旋转环，以及 pitch 等于 90 度时 yaw 与 roll 两个旋转轴重合形成万向节锁" />
+  <figcaption>正常姿态有三个独立旋转方向；pitch 到达 ±90° 时，yaw 与 roll 的作用发生耦合。</figcaption>
+</figure>
+
+### 内禀旋转与外禀旋转
+
+- 外禀旋转：始终绕固定世界轴旋转；
+- 内禀旋转：绕已经随物体转动的自身轴旋转。
+
+一组内禀 ZYX 可以等价描述为逆序的外禀 XYZ，但文字和库 API 的命名并不总是一致。工程上不能只传三个角，还必须记录：
+
+```text
+轴顺序 + 内禀/外禀 + 角度单位 + 主动/被动约定
+```
+
+### 万向节锁不是机器人真的被锁住
+
+在 ZYX 约定中，当 $\theta=+90^{\circ}$ 时：
+
+$$
+\mathbf{R}_z(\psi)\mathbf{R}_y\!\left(\frac{\pi}{2}\right)\mathbf{R}_x(\phi)
+$$
+
+最终只依赖 $\phi-\psi$ 的组合。不同的 roll/yaw 数值可以表示同一个姿态，因此丢失了一个参数自由度。
+
+<div class="warning"><strong>关键区别：</strong>物理姿态仍有 3 个自由度；出问题的是欧拉角这套坐标在该位置变得奇异。换成旋转矩阵或四元数不会让姿态消失，但从它们转换回欧拉角时仍会遇到不唯一。</div>
+
+## 04 · 轴角：把旋转看成“绕哪根轴转多少”
+
+任意三维旋转都可以描述为：绕单位轴 $\mathbf{u}$ 旋转角度 $\alpha$。
+
+$$
+\mathbf{u}=
+\begin{bmatrix}u_x\\u_y\\u_z\end{bmatrix},
+\qquad
+\lVert\mathbf{u}\rVert_2=1
+$$
+
+先定义叉乘矩阵：
+
+$$
+[\mathbf{u}]_{\times}
+=
+\begin{bmatrix}
+0&-u_z&u_y\\
+u_z&0&-u_x\\
+-u_y&u_x&0
+\end{bmatrix}
+$$
+
+它满足：
+
+$$
+[\mathbf{u}]_{\times}\mathbf{v}=\mathbf{u}\times\mathbf{v}
+$$
+
+Rodrigues 公式把轴角转换为旋转矩阵：
+
+<div class="formula-focus">
+
+$$
+\mathbf{R}
+=
+\cos\alpha\,\mathbf{I}_3
++
+(1-\cos\alpha)\,\mathbf{u}\mathbf{u}^{\mathsf T}
++
+\sin\alpha\,[\mathbf{u}]_{\times}
+$$
+
+</div>
+
+可以把它理解成三个部分：
+
+1. 沿旋转轴的分量保持不变；
+2. 垂直于轴的分量乘 $\cos\alpha$；
+3. 叉乘项把垂直分量沿切线方向推转 $\sin\alpha$。
+
+因此旋转轴本身满足：
+
+$$
+\mathbf{R}\mathbf{u}=\mathbf{u}
+$$
+
+### 旋转向量
+
+工程中经常把轴和角合并为 3 维旋转向量：
+
+$$
+\boldsymbol{\omega}=\alpha\mathbf{u}
+$$
+
+它的方向是旋转轴，模长是旋转角。OpenCV 的 Rodrigues 接口和许多李群优化都使用这种形式。
+
+<div class="warning"><strong>零角附近：</strong>当 $\alpha\approx0$ 时，旋转轴方向本身不稳定，因为“几乎不旋转”可以由任意轴描述。代码中应使用小角度近似，而不是直接除以一个很小的角度。</div>
+
+## 05 · 四元数：把轴角放到四维单位球面
+
+本课使用标量在前的单位四元数：
+
+$$
+\mathbf{q}=(w,x,y,z)=(w,\mathbf{v})
+$$
+
+由轴角 $(\mathbf{u},\alpha)$ 构造：
+
+<div class="formula-focus">
+
+$$
+\mathbf{q}
+=
+\left(
+\cos\frac{\alpha}{2},
+\ \mathbf{u}\sin\frac{\alpha}{2}
+\right)
+$$
+
+</div>
+
+<figure class="diagram-card wide-diagram">
+  <img src="../../assets/02-axis-angle-quaternion.svg" alt="轴角通过余弦和正弦半角转换成标量在前的单位四元数，并展示 q 和负 q 表示相同旋转" />
+  <figcaption>四元数使用半角将三维旋转编码到四维单位球面上；它不是把角度随意除以 2。</figcaption>
+</figure>
+
+单位约束为：
+
+$$
+\lVert\mathbf{q}\rVert_2^2
+=w^2+x^2+y^2+z^2=1
+$$
+
+### 为什么 q 和 −q 是同一个旋转
+
+将四元数作用到三维向量时，把向量写成纯四元数 $\mathbf{p}_q=(0,\mathbf{p})$：
+
+$$
+\mathbf{p}'_q
+=
+\mathbf{q}\otimes\mathbf{p}_q\otimes\mathbf{q}^{-1}
+$$
+
+如果把 $\mathbf{q}$ 全部取负，左右两个负号会抵消，因此结果不变：
+
+$$
+\mathbf{q}\sim-\mathbf{q}
+$$
+
+这称为双覆盖。四元数空间中的两个对跖点对应同一个三维旋转。
+
+<div class="warning"><strong>训练中的符号跳变：</strong>连续两帧可能输出 $\mathbf{q}$ 和 $-\mathbf{q}$，物理姿态完全相同，但直接做 L2 损失会认为差异很大。比较前应统一符号，或使用对双覆盖不敏感的旋转距离。</div>
+
+## 06 · 四元数复合、归一化与插值
+
+### 复合顺序
+
+Hamilton 乘积记为 $\otimes$。若先执行旋转 $\mathbf{q}_1$，再执行 $\mathbf{q}_2$，则总旋转为：
+
+$$
+\mathbf{q}_{\mathrm{total}}
+=
+\mathbf{q}_2\otimes\mathbf{q}_1
+$$
+
+这和旋转矩阵从右向左作用一致。四元数乘法同样通常不可交换。
+
+### 为什么每次都要归一化
+
+理论上单位四元数乘积仍是单位四元数，但浮点误差和网络输出会破坏单位范数。使用前应执行：
+
+$$
+\widehat{\mathbf{q}}
+=
+\frac{\mathbf{q}}{\lVert\mathbf{q}\rVert_2}
+$$
+
+零范数或极小范数必须单独处理，不能直接相除。
+
+### SLERP：沿最短旋转路径插值
+
+设两个单位四元数夹角满足：
+
+$$
+\Omega=\arccos(\mathbf{q}_0^{\mathsf T}\mathbf{q}_1)
+$$
+
+球面线性插值为：
+
+$$
+\operatorname{SLERP}(\mathbf{q}_0,\mathbf{q}_1;t)
+=
+\frac{\sin((1-t)\Omega)}{\sin\Omega}\mathbf{q}_0
++
+\frac{\sin(t\Omega)}{\sin\Omega}\mathbf{q}_1
+$$
+
+如果 $\mathbf{q}_0^{\mathsf T}\mathbf{q}_1<0$，通常先把 $\mathbf{q}_1$ 取负，再插值，从而选择单位球面上的较短路径。
+
+<div class="insight"><strong>接近同一点时：</strong>当 $\Omega$ 很小时，$\sin\Omega$ 也很小。工程实现通常改用归一化线性插值，避免数值不稳定。</div>
+
+## 07 · 一个完整数值例子：绕 +z 旋转 90°
+
+已知：
+
+$$
+\mathbf{u}=
+\begin{bmatrix}0\\0\\1\end{bmatrix},
+\qquad
+\alpha=90^{\circ}=\frac{\pi}{2}
+$$
+
+轴角转四元数：
+
+$$
+\mathbf{q}
+=
+\left(
+\cos45^{\circ},
+0,
+0,
+\sin45^{\circ}
+\right)
+=
+\left(
+\frac{\sqrt2}{2},0,0,\frac{\sqrt2}{2}
+\right)
+$$
+
+对应旋转矩阵：
+
+$$
+\mathbf{R}_z\!\left(\frac{\pi}{2}\right)
+=
+\begin{bmatrix}
+0&-1&0\\
+1&0&0\\
+0&0&1
+\end{bmatrix}
+$$
+
+对应 ZYX 欧拉角的一组表示为：
+
+$$
+(\phi,\theta,\psi)=(0,0,90^{\circ})
+$$
+
+将 $\mathbf{p}=(1,0,0)^{\mathsf T}$ 旋转后：
+
+$$
+\mathbf{p}'=(0,1,0)^{\mathsf T}
+$$
+
+四种表示给出完全一致的物理结果。验算旋转时，应比较它们对向量的作用或比较相对旋转，而不是直接比较参数数字。
+
+## 08 · 工程映射：ROS2、视觉与深度学习
+
+### 字段顺序
+
+本课正文使用 $(w,x,y,z)$，但常见接口可能存储为：
+
+```text
+geometry_msgs/Quaternion：字段名 x, y, z, w
+部分数学库：w, x, y, z
+部分视觉库：x, y, z, w
+```
+
+不能根据数组长度猜顺序，必须查接口定义并使用字段名。
+
+### 角度单位
+
+- 人机界面常显示 degree；
+- NumPy、PyTorch 和多数数学 API 使用 radian；
+- $180^{\circ}=\pi\ \mathrm{rad}$。
+
+把 90 当作 90 radian 输入，不会得到 90° 旋转。
+
+### 主动与被动、世界系与机体系
+
+同一个矩阵可能被解释为：
+
+- 主动旋转一个向量；
+- 被动地更换向量表达坐标系；
+- 世界到相机；
+- 相机到世界。
+
+<div class="warning"><strong>最小诊断法：</strong>不要只打印四元数。选取基向量 $(1,0,0)^{\mathsf T}$，实际应用旋转，然后检查它应该指向哪里。这个测试能同时暴露方向、乘法顺序和字段顺序错误。</div>
+
+### 姿态误差不要直接减欧拉角
+
+目标姿态与当前姿态的相对旋转可写成：
+
+$$
+\mathbf{R}_{\mathrm{err}}
+=
+\mathbf{R}_{\mathrm{target}}
+\mathbf{R}_{\mathrm{current}}^{\mathsf T}
+$$
+
+或在一致约定下使用四元数：
+
+$$
+\mathbf{q}_{\mathrm{err}}
+=
+\mathbf{q}_{\mathrm{target}}
+\otimes
+\mathbf{q}_{\mathrm{current}}^{-1}
+$$
+
+再将误差转换为轴角或旋转向量用于控制和损失计算，通常比直接相减欧拉角更合理。
+
+## 本课小结
+
+- $\mathrm{SO}(3)$ 要求正交且行列式为 1；
+- 欧拉角必须附带轴顺序、内外禀、单位和方向约定；
+- 万向节锁是参数化奇异，不是物理姿态少了自由度；
+- Rodrigues 公式把轴角转换为旋转矩阵；
+- 单位四元数使用半角编码轴角；
+- $\mathbf{q}$ 与 $-\mathbf{q}$ 表示同一旋转；
+- 复合从右向左，插值前应检查四元数点积符号；
+- 工程排错优先用基向量验证，不要只看参数数字。

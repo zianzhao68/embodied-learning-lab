@@ -69,5 +69,68 @@ export const quizzes: Record<string, QuizQuestion[]> = {
       explain: '优先排查变换方向、动态 TF 与单位；识别稳定时盲目增加训练轮数通常无效。',
       multiple: true
     }
+  ],
+  'rotation-representations': [
+    {
+      question: '一个矩阵属于 $\\mathrm{SO}(3)$ 必须同时满足什么条件？',
+      options: ['$\\mathbf{R}^{\\mathsf T}\\mathbf{R}=\\mathbf{I}_3$ 且 $\\det(\\mathbf{R})=1$', '矩阵所有元素都大于 0', '$\\det(\\mathbf{R})=-1$', '矩阵必须是对称矩阵'],
+      answer: [0],
+      explain: '正交性保证轴单位且互相垂直，行列式为 1 保证右手性并排除镜像反射。'
+    },
+    {
+      question: '若 $\\mathbf{R}^{\\mathsf T}\\mathbf{R}=\\mathbf{I}_3$，但 $\\det(\\mathbf{R})=-1$，它表示什么？',
+      options: ['合法三维旋转', '反射或旋转与反射的组合', '零旋转', '四元数未归一化'],
+      answer: [1],
+      explain: '行列式为 −1 的正交矩阵改变手性，属于 O(3) 但不属于 SO(3)。'
+    },
+    {
+      question: '列向量和 ZYX 约定下，$\\mathbf{R}=\\mathbf{R}_z(\\psi)\\mathbf{R}_y(\\theta)\\mathbf{R}_x(\\phi)$ 对向量的实际作用顺序是什么？',
+      options: ['先 yaw，再 pitch，最后 roll', '先 roll，再 pitch，最后 yaw', '三次同时发生，顺序无关', '只执行 pitch'],
+      answer: [1],
+      explain: '矩阵从右向左作用，因此最右侧 Rx(roll) 最先作用，然后是 Ry(pitch) 和 Rz(yaw)。'
+    },
+    {
+      question: 'ZYX 欧拉角在 pitch 为 $\\pm90^{\\circ}$ 附近出现万向节锁，其本质是什么？',
+      options: ['机器人少了一个物理关节', '旋转矩阵不再正交', '欧拉角参数化奇异，roll 与 yaw 发生耦合', '四元数范数变成 0'],
+      answer: [2],
+      explain: '物理姿态仍有 3 个自由度，但该欧拉角坐标在奇异位置失去唯一性。'
+    },
+    {
+      question: '轴角 Rodrigues 旋转中，单位旋转轴 $\\mathbf{u}$ 满足哪个关系？',
+      options: ['$\\mathbf{R}\\mathbf{u}=\\mathbf{0}$', '$\\mathbf{R}\\mathbf{u}=\\mathbf{u}$', '$\\mathbf{R}\\mathbf{u}=-\\mathbf{u}$', '$\\lVert\\mathbf{u}\\rVert_2=0$'],
+      answer: [1],
+      explain: '绕轴旋转不会改变轴自身方向，因此旋转轴是特征值为 1 的方向。'
+    },
+    {
+      question: '绕 $+z$ 轴旋转 $90^{\\circ}$，按 $(w,x,y,z)$ 顺序的单位四元数是哪一个？',
+      options: ['$(0,0,0,1)$', '$(\\sqrt2/2,0,0,\\sqrt2/2)$', '$(1,0,0,1)$', '$(\\sqrt2/2,\\sqrt2/2,0,0)$'],
+      answer: [1],
+      explain: '轴为 (0,0,1)，半角为 45°，所以 q=(cos45°,0,0,sin45°)。'
+    },
+    {
+      question: '单位四元数 $\\mathbf{q}$ 与 $-\\mathbf{q}$ 的关系是什么？',
+      options: ['表示相反旋转', '表示同一个三维旋转', '只有 q 合法', '两者旋转轴相同但角度相差 90°'],
+      answer: [1],
+      explain: '四元数对 SO(3) 是双覆盖；q 与 −q 作用到向量时两个负号抵消。'
+    },
+    {
+      question: '若先执行四元数旋转 $\\mathbf{q}_1$，再执行 $\\mathbf{q}_2$，总旋转应写成什么？',
+      options: ['$\\mathbf{q}_1\\otimes\\mathbf{q}_2$', '$\\mathbf{q}_2\\otimes\\mathbf{q}_1$', '$\\mathbf{q}_1+\\mathbf{q}_2$', '$\\mathbf{q}_1-\\mathbf{q}_2$'],
+      answer: [1],
+      explain: '与列向量旋转矩阵一致，右侧旋转先作用，因此总旋转为 q₂⊗q₁。'
+    },
+    {
+      question: 'SLERP 前发现 $\\mathbf{q}_0^{\\mathsf T}\\mathbf{q}_1<0$，通常应如何处理？',
+      options: ['把 q₁ 取负后再插值', '把两个四元数都设为 0', '直接交换 w 与 x', '改成欧拉角逐元素相加'],
+      answer: [0],
+      explain: 'q₁ 与 −q₁ 表示同一旋转；取负可以选择四维单位球面上的较短插值路径。'
+    },
+    {
+      question: '机器人姿态接口对接时，哪些项目必须显式检查？（多选）',
+      options: ['四元数字段是 wxyz 还是 xyzw', '角度使用 degree 还是 radian', '主动/被动旋转与坐标系方向', '只要数组长度为 4 就无需检查'],
+      answer: [0, 1, 2],
+      explain: '字段顺序、角度单位、旋转方向和坐标系语义都会造成姿态错误；数组长度不能说明约定。',
+      multiple: true
+    }
   ]
 }

@@ -1,6 +1,6 @@
 # ADR-001：课程网站架构与公网发布方案
 
-- 状态：架构已实施；公开 GitHub 仓库和 Pages 工作流已配置，等待网页端启用 Pages
+- 状态：架构与 GitHub Pages 公网部署均已实施
 - 日期：2026-08-30
 - 背景：课程需要手机端自动适配、公式/图例/测试清晰、频繁迭代，并允许非局域网访问。
 
@@ -96,13 +96,14 @@ site/
 │  ├─ content.config.ts
 │  ├─ content/courses/*.mdx
 │  ├─ components/
-│  │  ├─ CourseLayout.astro
-│  │  ├─ FormulaBlock.astro
-│  │  ├─ Quiz.ts
-│  │  └─ ThreeScene.ts
-│  ├─ layouts/
+│  │  ├─ CourseCard.astro
+│  │  ├─ CourseNav.astro
+│  │  └─ Quiz.astro
+│  ├─ data/quizzes.ts
+│  ├─ layouts/BaseLayout.astro
 │  ├─ pages/
-│  └─ styles/
+│  ├─ styles/global.css
+│  └─ utils/url.ts
 └─ public/assets/
 ```
 
@@ -110,8 +111,8 @@ site/
 
 - 仓库已调整为公开：`https://github.com/zianzhao68/embodied-learning-lab`。
 - Astro 静态主站已在 `site/` 实施，旧版 `web/` 未覆盖。
-- GitHub Pages Actions 工作流已配置，等待在仓库 Settings 中启用。
-- 待用户准备可用域名，并确认是否进行 ICP 备案。
+- GitHub Pages Actions 工作流已配置并成功部署：`https://zianzhao68.github.io/embodied-learning-lab/`。
+- 待使用真实手机网络验证中国大陆访问体验；自定义域名和 ICP 备案为后续可选项。
 - 暂不需要登录和跨手机/电脑同步进度，因此不引入后端。
 
 ## 7. 调研来源
