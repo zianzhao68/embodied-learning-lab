@@ -85,7 +85,7 @@ npm run dev
 - GitHub 仓库：`https://github.com/zianzhao68/embodied-learning-lab`
 - 网页预览：`site/preview-astro-desktop.png`、`site/preview-astro-production-mobile.png`
 - 下一步：用户在 GitHub `Settings → Pages` 将 Source 设为 `GitHub Actions`；检查部署结果和手机公网访问
-- 阻塞项：Pages 需要网页端启用；自定义域名尚未准备，不影响默认 Pages 地址
+- 阻塞项：首次 Actions 运行在 `Setup Pages` 阶段失败，因为仓库 Pages 尚未在网页端启用；启用后重新运行即可。自定义域名尚未准备，不影响默认 Pages 地址
 
 ## 6. 掌握度看板
 
@@ -115,7 +115,7 @@ npm run dev
 | 2026-08-30 | 补充右手定则与观察方向 | 说明右手坐标系、拇指/四指判断法、从 ±轴两端观察的视觉差异，以及 x/y/z 三轴 +90° 方向；增加三联 SVG 和 2 道测试 | 构建通过、审计 0 漏洞；章节截图检查通过；题目增至 10 道 | 课程时长调整为 90–120 分钟 | 阅读新增内容并完成测试 |
 | 2026-08-30 | 调研手机适配与公网发布 | 完成 Astro/现有 Vite/文档框架对比，以及 GitHub Pages、EdgeOne Makers、Cloudflare Pages、Vercel 等方案调研；形成 ADR-001 | 官方配额、Git 部署和域名/备案规则已核查 | 提议从 Vite SPA 迁移 Astro；先零成本 GitHub Pages，国内长期用 EdgeOne + 域名 | 用户确认公开仓库和域名条件后实施 |
 | 2026-08-30 | 主站迁移到 Astro | 新建 `site/` 主站；迁移第一课、KaTeX、SVG、10 题测试、首页和路线；增加 Content Collections schema、静态课程路由、移动端折叠目录和课程模板 | `astro check` 0 错误/0 警告/0 提示；静态构建 4 页；审计 0 漏洞；390px 无横向溢出；测试交互 10/10 验证通过 | 为避免破坏性覆盖，旧版 `web/` 保留，`site/` 成为主站 | 配置代码托管和公网发布 |
-| 2026-08-30 | GitHub 首次发布与 Pages 配置 | 初始化 Git、合并远程 LICENSE、推送完整项目；增加 GitHub Pages Actions 工作流和 Astro base path 适配 | 仓库推送成功；Pages 子路径构建 0 错误/0 警告/0 提示；审计 0 漏洞 | 仓库条件变更为可公开，因此恢复 GitHub Pages 首发方案 | 网页端启用 GitHub Actions Pages 并验证公网地址 |
+| 2026-08-30 | GitHub 首次发布与 Pages 配置 | 初始化 Git、合并远程 LICENSE、推送完整项目；增加 GitHub Pages Actions 工作流和 Astro base path 适配 | 代码推送成功；本地 Pages 子路径构建通过；首次 Actions 在 `Setup Pages` 失败，原因为仓库 Pages 尚未启用 | 仓库条件变更为可公开，因此恢复 GitHub Pages 首发方案 | 网页端将 Pages Source 设为 GitHub Actions，再重新运行工作流 |
 
 ## 8. 会话恢复协议
 
