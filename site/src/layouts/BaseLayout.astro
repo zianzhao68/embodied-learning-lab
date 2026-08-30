@@ -1,0 +1,33 @@
+---
+import '../styles/global.css'
+import 'katex/dist/katex.min.css'
+import Header from '../components/Header.astro'
+import Footer from '../components/Footer.astro'
+
+interface Props {
+  title?: string
+  description?: string
+}
+
+const {
+  title = '具身学习实验室',
+  description = '面向具身算法工程师的可复用学习课程'
+} = Astro.props
+const pageTitle = title === '具身学习实验室' ? title : `${title} · 具身学习实验室`
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#f6f7f3" />
+    <title>{pageTitle}</title>
+  </head>
+  <body>
+    <Header />
+    <slot />
+    <Footer />
+  </body>
+</html>

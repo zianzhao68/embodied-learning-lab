@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="430" viewBox="0 0 960 430">
+  <defs>
+    <marker id="blueArrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0L9 4.5L0 9Z" fill="#3568d4"/></marker>
+    <marker id="greenArrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0L9 4.5L0 9Z" fill="#24945c"/></marker>
+    <marker id="redArrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0L9 4.5L0 9Z" fill="#dc4f42"/></marker>
+  </defs>
+  <rect width="960" height="430" rx="22" fill="#f8faf8"/>
+  <text x="34" y="44" font-family="sans-serif" font-size="23" font-weight="700" fill="#17201d">右手定则：先确定轴的正方向，再判断旋转正方向</text>
+  <text x="34" y="73" font-family="sans-serif" font-size="14" fill="#69726e">右手拇指指向 +z，其余四指弯曲的方向就是 +θ。</text>
+
+  <!-- panel 1 -->
+  <rect x="28" y="98" width="282" height="292" rx="16" fill="#fff" stroke="#d9dfda"/>
+  <text x="48" y="130" font-family="sans-serif" font-size="17" font-weight="700" fill="#17201d">① 拇指决定正轴</text>
+  <line x1="168" y1="325" x2="168" y2="165" stroke="#3568d4" stroke-width="7" marker-end="url(#blueArrow)"/>
+  <text x="183" y="174" font-family="sans-serif" font-size="18" font-weight="700" fill="#2859bd">+z（拇指）</text>
+  <path d="M102 255 A72 52 0 1 0 203 218" fill="none" stroke="#dc4f42" stroke-width="6" marker-end="url(#redArrow)"/>
+  <text x="58" y="350" font-family="sans-serif" font-size="15" fill="#69726e">四指弯曲方向 = +θ</text>
+
+  <!-- panel 2 -->
+  <rect x="339" y="98" width="282" height="292" rx="16" fill="#fff" stroke="#d9dfda"/>
+  <text x="359" y="130" font-family="sans-serif" font-size="17" font-weight="700" fill="#17201d">② 站在 +z 端看原点</text>
+  <circle cx="480" cy="246" r="86" fill="#f8faf8" stroke="#d9dfda" stroke-width="2"/>
+  <line x1="480" y1="246" x2="552" y2="246" stroke="#dc4f42" stroke-width="5" marker-end="url(#redArrow)"/>
+  <line x1="480" y1="246" x2="480" y2="174" stroke="#24945c" stroke-width="5" marker-end="url(#greenArrow)"/>
+  <text x="554" y="267" font-family="sans-serif" font-size="16" fill="#b84035">+x</text>
+  <text x="494" y="178" font-family="sans-serif" font-size="16" fill="#177a48">+y</text>
+  <path d="M548 252 A70 70 0 0 0 487 178" fill="none" stroke="#3568d4" stroke-width="5" marker-end="url(#blueArrow)"/>
+  <circle cx="480" cy="246" r="19" fill="#fff" stroke="#3568d4" stroke-width="3"/><circle cx="480" cy="246" r="5" fill="#3568d4"/>
+  <text x="371" y="357" font-family="sans-serif" font-size="15" font-weight="700" fill="#17201d">+θ 看起来是逆时针：+x → +y</text>
+
+  <!-- panel 3 -->
+  <rect x="650" y="98" width="282" height="292" rx="16" fill="#fff" stroke="#d9dfda"/>
+  <text x="670" y="130" font-family="sans-serif" font-size="17" font-weight="700" fill="#17201d">③ 换到 −z 端观察</text>
+  <circle cx="791" cy="246" r="86" fill="#f8faf8" stroke="#d9dfda" stroke-width="2"/>
+  <line x1="791" y1="246" x2="719" y2="246" stroke="#dc4f42" stroke-width="5" marker-end="url(#redArrow)"/>
+  <line x1="791" y1="246" x2="791" y2="174" stroke="#24945c" stroke-width="5" marker-end="url(#greenArrow)"/>
+  <text x="687" y="267" font-family="sans-serif" font-size="16" fill="#b84035">+x</text>
+  <text x="805" y="178" font-family="sans-serif" font-size="16" fill="#177a48">+y</text>
+  <path d="M723 252 A70 70 0 0 1 784 178" fill="none" stroke="#3568d4" stroke-width="5" marker-end="url(#blueArrow)"/>
+  <circle cx="791" cy="246" r="19" fill="#fff" stroke="#3568d4" stroke-width="3"/><path d="M781 236l20 20M801 236l-20 20" stroke="#3568d4" stroke-width="3"/>
+  <text x="682" y="345" font-family="sans-serif" font-size="15" font-weight="700" fill="#17201d">同一个 +θ 看起来变成顺时针</text>
+  <text x="684" y="370" font-family="sans-serif" font-size="13" fill="#69726e">物理方向没变，只是观察面换了。</text>
+</svg>

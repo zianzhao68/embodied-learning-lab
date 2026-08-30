@@ -1,0 +1,39 @@
+---
+import { getCollection } from 'astro:content'
+import BaseLayout from '../layouts/BaseLayout.astro'
+import CourseCard from '../components/CourseCard.astro'
+
+const courses = (await getCollection('courses', ({ data }) => data.published))
+  .sort((a, b) => a.data.order - b.data.order)
+---
+
+<BaseLayout>
+  <main>
+    <section class="hero">
+      <div class="eyebrow">EMBODIED INTELLIGENCE · SYSTEMATIC COURSE</div>
+      <h1>从空间直觉出发，<br /><em>构建完整的具身能力链。</em></h1>
+      <p>面向具身算法工程师的项目制课程。每一课都包含清晰公式、原理图解、工程映射与即时测试。</p>
+      <div class="hero-actions">
+        <a class="button primary" href={`/courses/${courses[0].data.slug}/`}>开始第一课 <span aria-hidden="true">→</span></a>
+        <a class="button ghost" href="/roadmap/">查看学习路径</a>
+      </div>
+      <div class="stats">
+        <div><strong>{courses.length}</strong><span>已发布课程</span></div>
+        <div><strong id="completed-count">0</strong><span>已完成</span></div>
+        <div><strong>9 个月</strong><span>成长路线</span></div>
+      </div>
+    </section>
+    <section class="course-section" id="courses">
+      <div class="section-heading"><div><span>CURRICULUM</span><h2>课程目录</h2></div><p>先建立机器人基础，再进入模仿学习与 VLA。</p></div>
+      <div class="course-grid">
+        {courses.map(({ data }) => <CourseCard id={data.slug} {...data} />)}
+      </div>
+    </section>
+  </main>
+</BaseLayout>
+
+<script is:inline define:vars={{ courseIds: courses.map(({ data }) => data.slug) }}>
+  const count = courseIds.filter((id) => localStorage.getItem(`course:${id}:done`) === '1').length
+  const target = document.querySelector('#completed-count')
+  if (target) target.textContent = String(count)
+</script>

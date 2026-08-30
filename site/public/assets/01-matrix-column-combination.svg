@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="430" viewBox="0 0 960 430">
+  <rect width="960" height="430" rx="22" fill="#f8faf8"/>
+  <text x="38" y="48" font-family="sans-serif" font-size="24" font-weight="700" fill="#17201d">矩阵 × 向量 = 用向量中的数字给矩阵各列加权</text>
+  <text x="38" y="78" font-family="sans-serif" font-size="15" fill="#69726e">把每一列看成一个“方向积木”，输入向量决定每块积木取多少。</text>
+
+  <!-- matrix A -->
+  <text x="58" y="218" font-family="serif" font-size="30" font-weight="700" fill="#17201d">A</text>
+  <path d="M98 123h-12v190h12 M272 123h12v190h-12" fill="none" stroke="#17201d" stroke-width="3"/>
+  <rect x="102" y="134" width="50" height="168" rx="10" fill="#fee9e6" stroke="#dc5b4b" stroke-width="2"/>
+  <rect x="160" y="134" width="50" height="168" rx="10" fill="#e2f5e9" stroke="#24945c" stroke-width="2"/>
+  <rect x="218" y="134" width="50" height="168" rx="10" fill="#e6edff" stroke="#3568d4" stroke-width="2"/>
+  <text x="119" y="226" font-family="serif" font-size="26" fill="#b63f33">a₁</text>
+  <text x="177" y="226" font-family="serif" font-size="26" fill="#177a48">a₂</text>
+  <text x="235" y="226" font-family="serif" font-size="26" fill="#2859bd">a₃</text>
+  <text x="116" y="333" font-family="sans-serif" font-size="13" fill="#b63f33">第 1 列</text>
+  <text x="174" y="354" font-family="sans-serif" font-size="13" fill="#177a48">第 2 列</text>
+  <text x="232" y="333" font-family="sans-serif" font-size="13" fill="#2859bd">第 3 列</text>
+
+  <!-- vector x -->
+  <text x="309" y="218" font-family="serif" font-size="28" fill="#17201d">×</text>
+  <path d="M361 143h-10v150h10 M421 143h10v150h-10" fill="none" stroke="#17201d" stroke-width="3"/>
+  <text x="378" y="184" font-family="serif" font-size="24" fill="#b63f33">x₁</text>
+  <text x="378" y="226" font-family="serif" font-size="24" fill="#177a48">x₂</text>
+  <text x="378" y="268" font-family="serif" font-size="24" fill="#2859bd">x₃</text>
+  <text x="358" y="329" font-family="sans-serif" font-size="13" fill="#69726e">取多少</text>
+
+  <text x="461" y="218" font-family="serif" font-size="30" fill="#17201d">=</text>
+
+  <!-- weighted sum -->
+  <rect x="512" y="157" width="92" height="122" rx="14" fill="#fee9e6" stroke="#dc5b4b" stroke-width="2"/>
+  <text x="535" y="225" font-family="serif" font-size="24" fill="#b63f33">x₁a₁</text>
+  <text x="614" y="222" font-family="serif" font-size="30" fill="#17201d">+</text>
+  <rect x="650" y="157" width="92" height="122" rx="14" fill="#e2f5e9" stroke="#24945c" stroke-width="2"/>
+  <text x="673" y="225" font-family="serif" font-size="24" fill="#177a48">x₂a₂</text>
+  <text x="752" y="222" font-family="serif" font-size="30" fill="#17201d">+</text>
+  <rect x="788" y="157" width="92" height="122" rx="14" fill="#e6edff" stroke="#3568d4" stroke-width="2"/>
+  <text x="811" y="225" font-family="serif" font-size="24" fill="#2859bd">x₃a₃</text>
+
+  <path d="M556 294 C610 350, 785 350, 834 294" fill="none" stroke="#7a8580" stroke-width="2" stroke-dasharray="6 6"/>
+  <text x="638" y="382" font-family="sans-serif" font-size="17" font-weight="600" fill="#17201d">把三个缩放后的列向量相加，得到输出 y</text>
+</svg>

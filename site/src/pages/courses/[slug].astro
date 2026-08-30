@@ -1,0 +1,30 @@
+---
+import { getCollection, render, type CollectionEntry } from 'astro:content'
+import BaseLayout from '../../layouts/BaseLayout.astro'
+import CourseNav from '../../components/CourseNav.astro'
+import Quiz from '../../components/Quiz.astro'
+import { quizzes } from '../../data/quizzes'
+
+export async function getStaticPaths() {
+  const courses = await getCollection('courses', ({ data }) => data.published)
+  return courses.map((course) => ({ params: { slug: course.data.slug }, props: { course } }))
+}
+
+interface Props { course: CollectionEntry<'courses'> }
+const { course } = Astro.props
+const { Content, headings } = await render(course)
+const questions = quizzes[course.data.slug] ?? []
+---
+
+<BaseLayout title={course.data.title} description={course.data.description}>
+  <div class="course-layout">
+    <CourseNav title={course.data.title} order={course.data.order} duration={course.data.duration} headings={headings} />
+    <main class="lesson-wrap">
+      <article class="lesson">
+        <div class="lesson-kicker"><span>{course.data.phase}</span><span>{course.data.level}</span><span>{course.data.duration}</span></div>
+        <Content />
+        {questions.length > 0 && <Quiz courseId={course.data.slug} questions={questions} />}
+      </article>
+    </main>
+  </div>
+</BaseLayout>

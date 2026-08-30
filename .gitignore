@@ -1,0 +1,25 @@
+# Dependencies and generated output
+**/node_modules/
+**/dist/
+**/.astro/
+*.log
+
+# Local previews and OS files
+**/preview-*.png
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+
+# Secrets: never commit
+.env
+.env.*
+!.env.example
+credentials.*
+*private*key*
+*token*
+*secret*
+*.pem
+*.p12

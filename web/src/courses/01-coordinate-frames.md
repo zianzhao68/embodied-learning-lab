@@ -1,0 +1,479 @@
+# 坐标系与刚体变换
+
+<div class="lead">机器人看见的位置，为什么不能直接拿来抓？因为任何位置和方向，都必须回答一个前提：<strong>它是在哪个坐标系下表达的？</strong></div>
+
+## 本课目标
+
+完成本课后，你应该能够：
+
+- 区分空间中的点与点在某坐标系下的坐标；
+- 用“矩阵各列的加权组合”解释矩阵乘法；
+- 解释旋转矩阵每一列的几何意义；
+- 使用旋转和平移完成坐标转换；
+- 正确复合变换并计算逆变换；
+- 把公式映射到相机—机器人抓取链路。
+
+## 先备知识
+
+只需要知道向量可以写成一列数字。不要求提前掌握线性代数，本课会从“方向积木”的直觉重新解释矩阵乘法。
+
+> **记号约定**：本课程统一采用列向量。
+>
+> $$
+> {}^{\mathrm{A}}\mathbf{T}_{\mathrm{B}}
+> \equiv
+> \mathbf{T}_{\mathrm{A}\leftarrow\mathrm{B}}
+> $$
+>
+> 它表示“把 B 系中的坐标转换成 A 系坐标”。左上标是目标坐标系，右下标是来源坐标系。
+
+## 01 · 点没有变，坐标变了
+
+空间中的点 $P$ 是客观存在的，但描述它的三个数字依赖参考坐标系：
+
+- ${}^{\mathrm{A}}\mathbf{p}$：点 $P$ 在 A 坐标系中的坐标；
+- ${}^{\mathrm{B}}\mathbf{p}$：同一个点 $P$ 在 B 坐标系中的坐标。
+
+<figure class="diagram-card">
+  <img src="/assets/01-frame-transform.svg" alt="A、B 坐标系和点 P 的三维空间关系" />
+  <figcaption>同一个点 P 的两种坐标表达。虚线表示 A 系观察到的向量，实线表示 B 系观察到的向量。</figcaption>
+</figure>
+
+几何向量关系是：
+
+$$
+\overrightarrow{O_AP}=\overrightarrow{O_AO_B}+\overrightarrow{O_BP}
+$$
+
+但两个向量只有在**同一坐标系表达**时才能相加。因此，必须先把 ${}^{\mathrm{B}}\mathbf{p}$ 转成 A 系表达：
+
+<div class="formula-focus">
+
+$$
+{}^{\mathrm{A}}\mathbf{p}
+=
+{}^{\mathrm{A}}\mathbf{R}_{\mathrm{B}}\,{}^{\mathrm{B}}\mathbf{p}
++
+{}^{\mathrm{A}}\mathbf{t}_{\mathrm{B}}
+$$
+
+</div>
+
+这句话可以读作：**旋转统一表达，平移连接原点。**
+
+## 02 · 矩阵乘法到底在做什么
+
+很多人会背“左行乘右列”，但不知道结果为什么有意义。先只看矩阵乘向量。把矩阵 $\mathbf{A}$ 按列拆开：
+
+$$
+\mathbf{A}
+=
+\begin{bmatrix}
+|&|&|\\
+\mathbf{a}_1&\mathbf{a}_2&\mathbf{a}_3\\
+|&|&|
+\end{bmatrix},
+\qquad
+\mathbf{x}
+=
+\begin{bmatrix}x_1\\x_2\\x_3\end{bmatrix}
+$$
+
+那么：
+
+<div class="formula-focus">
+
+$$
+\mathbf{A}\mathbf{x}
+=
+x_1\mathbf{a}_1+x_2\mathbf{a}_2+x_3\mathbf{a}_3
+$$
+
+</div>
+
+最通俗的理解是：
+
+- 矩阵的每一列是一块“方向积木”；
+- 输入向量中的每个数字表示对应积木取多少；
+- 将缩放后的积木相加，就得到输出向量。
+
+<figure class="diagram-card">
+  <img src="/assets/01-matrix-column-combination.svg" alt="矩阵乘向量等于矩阵各列按输入分量加权后相加" />
+  <figcaption>不要先把矩阵看成数字表；先把它看成若干列向量组成的方向集合。</figcaption>
+</figure>
+
+### 一个可以手算的二维例子
+
+$$
+\mathbf{A}
+=
+\begin{bmatrix}2&1\\0&3\end{bmatrix},
+\qquad
+\mathbf{x}
+=
+\begin{bmatrix}4\\5\end{bmatrix}
+$$
+
+按“列的加权组合”理解：
+
+$$
+\mathbf{A}\mathbf{x}
+=
+4\begin{bmatrix}2\\0\end{bmatrix}
++
+5\begin{bmatrix}1\\3\end{bmatrix}
+=
+\begin{bmatrix}13\\15\end{bmatrix}
+$$
+
+传统的“左行乘右列”计算得到同一结果：
+
+$$
+\begin{bmatrix}
+2\times4+1\times5\\
+0\times4+3\times5
+\end{bmatrix}
+=
+\begin{bmatrix}13\\15\end{bmatrix}
+$$
+
+两种视角各有用途：**按行看是在计算输出的每个分量；按列看是在理解输出由哪些方向组合而成。**机器人学中，按列理解通常更直观。
+
+### 为什么矩阵乘法不能交换顺序
+
+$\mathbf{A}\mathbf{B}$ 表示先执行右侧的 $\mathbf{B}$，再执行左侧的 $\mathbf{A}$。交换成 $\mathbf{B}\mathbf{A}$，就像“先穿袜子再穿鞋”和“先穿鞋再穿袜子”，步骤相同但结果不同。
+
+从列的角度看，若 $\mathbf{C}=\mathbf{A}\mathbf{B}$，则结果矩阵的第 $j$ 列为：
+
+$$
+\mathbf{c}_j=\mathbf{A}\mathbf{b}_j
+$$
+
+也就是说：把 $\mathbf{B}$ 的每一列分别送进变换 $\mathbf{A}$，就组成了结果矩阵 $\mathbf{C}$。
+
+维度也能帮助检查：
+
+$$
+(m\times n)(n\times k)=(m\times k)
+$$
+
+中间维度必须相同：右侧矩阵的输出维度 $n$，必须等于左侧矩阵的输入维度 $n$，两个变换才能首尾连接。
+
+<div class="warning"><strong>高频错误：</strong>NumPy/PyTorch 中 <code>A * x</code> 通常是逐元素乘法，矩阵乘法应使用 <code>A @ x</code> 或 <code>torch.matmul(A, x)</code>。</div>
+
+### 回到坐标变换
+
+对于 ${}^{\mathrm{A}}\mathbf{R}_{\mathrm{B}}{}^{\mathrm{B}}\mathbf{p}$，点坐标中的三个数正是三个权重：
+
+$$
+{}^{\mathrm{A}}\mathbf{R}_{\mathrm{B}}{}^{\mathrm{B}}\mathbf{p}
+=
+p_x{}^{\mathrm{A}}\mathbf{x}_{\mathrm{B}}
++p_y{}^{\mathrm{A}}\mathbf{y}_{\mathrm{B}}
++p_z{}^{\mathrm{A}}\mathbf{z}_{\mathrm{B}}
+$$
+
+所以旋转矩阵乘点坐标，本质上是在说：**沿 B 的三个轴分别走 $p_x,p_y,p_z$，再用 A 坐标系描述最终合成的方向。**
+
+## 03 · 看懂旋转矩阵，而不是背矩阵
+
+$$
+{}^{\mathrm{A}}\mathbf{R}_{\mathrm{B}}
+=
+\begin{bmatrix}
+|&|&|\\
+{}^{\mathrm{A}}\mathbf{x}_{\mathrm{B}}&
+{}^{\mathrm{A}}\mathbf{y}_{\mathrm{B}}&
+{}^{\mathrm{A}}\mathbf{z}_{\mathrm{B}}\\
+|&|&|
+\end{bmatrix}
+$$
+
+三列分别表示 **B 系 x、y、z 轴在 A 系中的坐标**。
+
+例如第一列 ${}^{\mathrm{A}}\mathbf{x}_{\mathrm{B}}$ 回答的问题是：“站在 A 坐标系看，B 的正 x 轴指向哪里？”这也是为什么将它乘以 $(1,0,0)^{\mathsf T}$，结果正好是 B 的 x 轴在 A 中的表达。
+
+### 先用右手定则确定旋转方向
+
+只说“绕 z 轴旋转 90°”其实不完整，还必须明确两件事：绕轴的正方向是什么，以及角度是 $+90^{\circ}$ 还是 $-90^{\circ}$。
+
+本课程使用右手坐标系：
+
+$$
+\mathbf{x}\times\mathbf{y}=\mathbf{z},
+\qquad
+\mathbf{y}\times\mathbf{z}=\mathbf{x},
+\qquad
+\mathbf{z}\times\mathbf{x}=\mathbf{y}
+$$
+
+判断绕某根轴的正旋转时：
+
+1. 右手拇指指向该轴的**正方向**；
+2. 其余四指自然弯曲；
+3. 四指弯曲的方向就是角度 $+\theta$ 的方向，反方向是 $-\theta$。
+
+<figure class="diagram-card">
+  <img src="/assets/01-right-hand-rule.svg" alt="右手拇指指向正 z 轴，四指弯曲表示正旋转方向；从正 z 端和负 z 端观察时视觉方向相反" />
+  <figcaption>“顺时针还是逆时针”依赖观察位置；右手定则给出的物理方向不依赖观察者。</figcaption>
+</figure>
+
+#### 为什么说“从 +z 端看向原点”
+
+设观察者位于 z 轴正半轴，视线朝向原点，也就是沿 $-z$ 方向观察 xy 平面。此时绕 $+z$ 的正旋转看起来是**逆时针**：
+
+$$
++\mathbf{x}\longrightarrow+\mathbf{y}
+$$
+
+如果观察者换到 $-z$ 一侧再看原点，同一个物理旋转会看起来是顺时针。旋转没有改变，改变的是观察面。因此不要孤立地背“正旋转就是逆时针”，必须同时说明从轴的哪一端观察。
+
+三个常用的 $+90^{\circ}$ 方向可以用右手定则快速得到：
+
+| 绕轴正向旋转 | 一个基轴的变化 |
+|---|---|
+| 绕 $+x$ 转 $+90^{\circ}$ | $+y\rightarrow+z$ |
+| 绕 $+y$ 转 $+90^{\circ}$ | $+z\rightarrow+x$ |
+| 绕 $+z$ 转 $+90^{\circ}$ | $+x\rightarrow+y$ |
+
+<div class="insight"><strong>实用动作：</strong>先把右手拇指对准坐标轴箭头，再弯曲四指。不要先在脑中猜顺逆时针，这能显著减少视角导致的符号错误。</div>
+
+### 为什么绕 z 轴旋转 90° 的矩阵里有 −1
+
+现在明确约定：B 系相对 A 系绕 $+z$ 旋转 $+90^{\circ}$。按照上面的右手定则，从 $+z$ 端看向原点，相当于在 xy 平面内逆时针旋转。
+
+旋转后逐个观察 B 的三个轴：
+
+1. B 的正 x 轴转到了 A 的正 y 方向，所以：
+
+   $$
+   {}^{\mathrm{A}}\mathbf{x}_{\mathrm{B}}
+   =
+   \begin{bmatrix}0\\1\\0\end{bmatrix}
+   $$
+
+2. B 的正 y 轴转到了 A 的负 x 方向，所以：
+
+   $$
+   {}^{\mathrm{A}}\mathbf{y}_{\mathrm{B}}
+   =
+   \begin{bmatrix}-1\\0\\0\end{bmatrix}
+   $$
+
+3. 绕 z 轴旋转不会改变 z 轴，所以：
+
+   $$
+   {}^{\mathrm{A}}\mathbf{z}_{\mathrm{B}}
+   =
+   \begin{bmatrix}0\\0\\1\end{bmatrix}
+   $$
+
+把它们按照 x、y、z 的顺序放成三列：
+
+<div class="formula-focus">
+
+$$
+{}^{\mathrm{A}}\mathbf{R}_{\mathrm{B}}
+=
+\begin{bmatrix}
+\color{#b84035}{0}&\color{#177a48}{-1}&0\\
+\color{#b84035}{1}&\color{#177a48}{0}&0\\
+\color{#b84035}{0}&\color{#177a48}{0}&1
+\end{bmatrix}
+$$
+
+</div>
+
+因此，$-1$ 并不是凭公式突然出现的。它来自第二列：**B 的正 y 轴，在 A 看来指向负 x。**
+
+<figure class="diagram-card">
+  <img src="/assets/01-z-rotation-90.svg" alt="B 坐标系相对 A 坐标系绕正 z 轴旋转 90 度后三个轴的方向，以及对应旋转矩阵的三列" />
+  <figcaption>先观察 B 的三个轴在 A 中分别指向哪里，再把三个坐标依次写成矩阵的列。</figcaption>
+</figure>
+
+一般的 z 轴旋转矩阵也可以从这三列直接得到：
+
+$$
+{}^{\mathrm{A}}\mathbf{R}_{\mathrm{B}}(\theta)
+=
+\begin{bmatrix}
+\cos\theta&-\sin\theta&0\\
+\sin\theta&\cos\theta&0\\
+0&0&1
+\end{bmatrix}
+$$
+
+- 第一列 $(\cos\theta,\sin\theta,0)^{\mathsf T}$ 是旋转后的 x 轴；
+- 第二列 $(-\sin\theta,\cos\theta,0)^{\mathsf T}$ 是旋转后的 y 轴；
+- 第三列 $(0,0,1)^{\mathsf T}$ 是不变的 z 轴。
+
+代入 $\cos90^{\circ}=0$、$\sin90^{\circ}=1$，自然得到上面的矩阵。
+
+还可以用基向量快速验算：
+
+$$
+{}^{\mathrm{A}}\mathbf{R}_{\mathrm{B}}
+\begin{bmatrix}1\\0\\0\end{bmatrix}
+=
+\begin{bmatrix}0\\1\\0\end{bmatrix},
+\qquad
+{}^{\mathrm{A}}\mathbf{R}_{\mathrm{B}}
+\begin{bmatrix}0\\1\\0\end{bmatrix}
+=
+\begin{bmatrix}-1\\0\\0\end{bmatrix}
+$$
+
+结果分别取出了矩阵的第一列和第二列，也正好对应 B 的 x 轴和 y 轴。
+
+<div class="warning"><strong>为什么有些资料写成相反的 −90° 矩阵？</strong>它们很可能计算的是反方向 ${}^{\mathrm{B}}\mathbf{R}_{\mathrm{A}}$，或者使用了行向量约定。反方向矩阵是本矩阵的转置。看到矩阵时，必须先确认“从哪个坐标系转换到哪个坐标系”。</div>
+
+合法旋转矩阵满足：
+
+$$
+\mathbf{R}^{\mathsf T}\mathbf{R}=\mathbf{I}_3,
+\qquad
+\det\!\left(\mathbf{R}\right)=1
+$$
+
+因此：
+
+$$
+\mathbf{R}^{-1}=\mathbf{R}^{\mathsf T}
+$$
+
+<div class="insight"><strong>工程检查：</strong>若网络预测或数值计算得到的旋转矩阵不满足正交性或行列式接近 1，它就可能不是合法旋转。</div>
+
+## 04 · 用齐次坐标统一旋转和平移
+
+旋转能直接写成矩阵乘法，但平移是加法。为统一二者，给三维点增加一个值为 1 的维度：
+
+$$
+{}^{\mathrm{A}}\mathbf{T}_{\mathrm{B}}
+=
+\begin{bmatrix}
+{}^{\mathrm{A}}\mathbf{R}_{\mathrm{B}} & {}^{\mathrm{A}}\mathbf{t}_{\mathrm{B}}\\
+\mathbf{0}^{\mathsf T} & 1
+\end{bmatrix}
+$$
+
+于是：
+
+$$
+\begin{bmatrix}{}^{\mathrm{A}}\mathbf{p}\\1\end{bmatrix}
+=
+{}^{\mathrm{A}}\mathbf{T}_{\mathrm{B}}
+\begin{bmatrix}{}^{\mathrm{B}}\mathbf{p}\\1\end{bmatrix}
+$$
+
+最后一维不是新的空间维度，它只是一个数学技巧，让平移也能通过矩阵乘法表达。
+
+## 05 · 变换链与上下标消去法
+
+如果已知 C 到 B、B 到 A 的变换：
+
+<div class="formula-focus">
+
+$$
+{}^{\mathrm{A}}\mathbf{T}_{\mathrm{C}}
+=
+{}^{\mathrm{A}}\mathbf{T}_{\mathrm{B}}\,
+{}^{\mathrm{B}}\mathbf{T}_{\mathrm{C}}
+$$
+
+</div>
+
+像单位分析一样检查上下标：
+
+$$
+A\leftarrow\cancel B\quad \cancel B\leftarrow C
+\quad=\quad A\leftarrow C
+$$
+
+矩阵从右向左作用：先把 C 系坐标转换到 B 系，再转换到 A 系。矩阵乘法通常不可交换，颠倒顺序不仅数值不同，坐标语义也不成立。
+
+## 06 · 逆变换为什么不是只把平移取负
+
+若：
+
+$$
+{}^{\mathrm{A}}\mathbf{T}_{\mathrm{B}}
+=
+\begin{bmatrix}
+\mathbf{R}&\mathbf{t}\\
+\mathbf{0}^{\mathsf T}&1
+\end{bmatrix}
+$$
+
+则：
+
+$$
+{}^{\mathrm{B}}\mathbf{T}_{\mathrm{A}}
+=\left({}^{\mathrm{A}}\mathbf{T}_{\mathrm{B}}\right)^{-1}
+=
+\begin{bmatrix}
+\mathbf{R}^{\mathsf T}&-\mathbf{R}^{\mathsf T}\mathbf{t}\\
+\mathbf{0}^{\mathsf T}&1
+\end{bmatrix}
+$$
+
+原来的 $\mathbf{t}$ 是 B 原点在 A 系中的表达。逆向时不但方向要反过来，还要把它转换到 B 系表达，所以平移项是 $-\mathbf{R}^{\mathsf T}\mathbf{t}$，而不是简单的 $-\mathbf{t}$。
+
+## 07 · 一个可以心算的例子
+
+假设 B 系相对 A 系绕 z 轴旋转 $90^{\circ}$，B 原点在 A 系位置为 $(1,2,0)$：
+
+$$
+{}^{\mathrm{A}}\mathbf{R}_{\mathrm{B}}=
+\begin{bmatrix}
+0&-1&0\\
+1&0&0\\
+0&0&1
+\end{bmatrix},\qquad
+{}^{\mathrm{A}}\mathbf{t}_{\mathrm{B}}
+=
+\begin{bmatrix}1\\2\\0\end{bmatrix}
+$$
+
+点 P 在 B 系为 $(1,0,0)$，则：
+
+$$
+{}^{\mathrm{A}}\mathbf{p}
+=
+{}^{\mathrm{A}}\mathbf{R}_{\mathrm{B}}
+\begin{bmatrix}1\\0\\0\end{bmatrix}
++
+{}^{\mathrm{A}}\mathbf{t}_{\mathrm{B}}
+=
+\begin{bmatrix}1\\3\\0\end{bmatrix}
+$$
+
+直觉检查：B 的正 x 轴在 A 看来指向正 y。因此从 B 原点 $(1,2,0)$ 沿 A 的正 y 走 1，得到 $(1,3,0)$。
+
+## 08 · 映射到机器人抓取
+
+视觉抓取常见链路为：
+
+$$
+{}^{\mathrm{base}}\mathbf{T}_{\mathrm{object}}
+=
+{}^{\mathrm{base}}\mathbf{T}_{\mathrm{camera}}\,
+{}^{\mathrm{camera}}\mathbf{T}_{\mathrm{object}}
+$$
+
+1. 视觉模型和深度提供物体相对相机的位置或位姿；
+2. 手眼标定提供相机与机器人之间的变换；
+3. 变换链得到物体在机器人基坐标系下的目标位姿；
+4. 运动学与规划器再将目标位姿转换成关节运动。
+
+<div class="warning"><strong>高频错误：</strong>TF 方向写反、左右乘约定混用、米与毫米混用，以及把眼在手上的动态相机位姿误当成固定外参。</div>
+
+## 本课小结
+
+- 点不变，坐标取决于参考系；
+- 矩阵乘向量等于矩阵各列按输入分量加权后相加；
+- 按行看输出分量，按列看方向组合；
+- 旋转矩阵的列是“被描述坐标系的轴”；
+- ${}^{\mathrm{A}}\mathbf{p}={}^{\mathrm{A}}\mathbf{R}_{\mathrm{B}}{}^{\mathrm{B}}\mathbf{p}+{}^{\mathrm{A}}\mathbf{t}_{\mathrm{B}}$；
+- 变换链可用上下标消去法检查；
+- 逆变换的平移为 $-\mathbf{R}^{\mathsf T}\mathbf{t}$；
+- 所有抓取坐标最终必须进入机器人控制所需的参考系。

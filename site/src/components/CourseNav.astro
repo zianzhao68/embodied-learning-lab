@@ -1,0 +1,48 @@
+---
+import type { MarkdownHeading } from 'astro'
+
+interface Props {
+  title: string
+  order: number
+  duration: string
+  headings: MarkdownHeading[]
+}
+
+const { title, order, duration, headings } = Astro.props
+const sections = headings.filter((heading) => heading.depth === 2)
+---
+
+<aside class="course-sidebar">
+  <a class="back-link" href="/">‹ 返回课程</a>
+  <div class="sidebar-meta">
+    <span>课程 {String(order).padStart(2, '0')}</span>
+    <strong>{title}</strong>
+    <small>{duration}</small>
+  </div>
+  <nav class="toc" aria-label="本课目录">
+    {sections.map((heading, index) => (
+      <a href={`#${heading.slug}`}>
+        <span>{String(index + 1).padStart(2, '0')}</span>{heading.text}
+      </a>
+    ))}
+  </nav>
+</aside>
+
+<details class="mobile-toc">
+  <summary>本课目录 <span>{sections.length} 个章节</span></summary>
+  <nav aria-label="移动端本课目录">
+    {sections.map((heading, index) => (
+      <a href={`#${heading.slug}`}>
+        <span>{String(index + 1).padStart(2, '0')}</span>{heading.text}
+      </a>
+    ))}
+  </nav>
+</details>
+
+<script>
+  document.querySelectorAll<HTMLDetailsElement>('.mobile-toc').forEach((details) => {
+    details.querySelectorAll('a').forEach((link) => link.addEventListener('click', () => {
+      details.open = false
+    }))
+  })
+</script>

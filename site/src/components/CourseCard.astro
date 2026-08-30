@@ -1,0 +1,33 @@
+---
+interface Props {
+  id: string
+  order: number
+  phase: string
+  title: string
+  description: string
+  duration: string
+  level: string
+  tags: string[]
+}
+const { id, order, phase, title, description, duration, level, tags } = Astro.props
+---
+
+<a class="course-card" href={`/courses/${id}/`} data-course-card={id}>
+  <div class="card-top"><span class="course-no">{String(order).padStart(2, '0')}</span><span class="status">{level}</span></div>
+  <span class="phase">{phase}</span><h3>{title}</h3><p>{description}</p>
+  <div class="tags">{tags.map((tag) => <span>{tag}</span>)}</div>
+  <div class="card-bottom"><span>{duration}</span><span class="read">进入课程 →</span></div>
+</a>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-course-card]').forEach((card) => {
+    const id = card.dataset.courseCard ?? ''
+    if (localStorage.getItem(`course:${id}:done`) === '1') {
+      const status = card.querySelector('.status')
+      if (status) {
+        status.textContent = '已完成'
+        status.classList.add('done')
+      }
+    }
+  })
+</script>

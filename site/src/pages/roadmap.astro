@@ -1,0 +1,22 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro'
+const stages = [
+  ['01', '机器人与 3D 基础', '第 1–8 周', '空间表示、运动学、视觉几何、控制与 ROS2'],
+  ['02', '模仿学习与操作策略', '第 9–16 周', 'BC、ACT、Diffusion Policy、数据与评测'],
+  ['03', 'VLA', '第 17–28 周', '视觉语言动作模型、微调、部署与泛化'],
+  ['04', '前沿专项与作品集', '第 29–36 周', '选择专项问题，完成对照实验和工程交付']
+]
+---
+
+<BaseLayout title="九个月成长路径" description="具身算法工程师九个月项目制学习路径">
+  <main class="roadmap-page">
+    <div class="eyebrow">LEARNING PATH</div>
+    <h1>九个月成长路径</h1>
+    <p class="roadmap-intro">以 VLA 操作为主线，以 3D 感知和运动控制为两翼。不是补完全部基础后再实践，而是在项目中反复建立能力。</p>
+    <div class="timeline">
+      {stages.map((stage) => (
+        <section><span>{stage[0]}</span><div><small>{stage[2]}</small><h2>{stage[1]}</h2><p>{stage[3]}</p></div></section>
+      ))}
+    </div>
+  </main>
+</BaseLayout>

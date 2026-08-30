@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="520" viewBox="0 0 900 520">
+  <defs>
+    <marker id="red" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#dc2626"/></marker>
+    <marker id="green" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#16a34a"/></marker>
+    <marker id="blue" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#2563eb"/></marker>
+    <marker id="purple" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#7c3aed"/></marker>
+    <marker id="gray" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#64748b"/></marker>
+  </defs>
+  <rect width="900" height="520" fill="#f8fafc"/>
+  <text x="28" y="38" font-family="sans-serif" font-size="24" font-weight="bold" fill="#0f172a">同一个点 P 在两个坐标系中的表示</text>
+  <text x="28" y="68" font-family="sans-serif" font-size="16" fill="#475569">轴采用斜投影绘制；颜色：x 红、y 绿、z 蓝</text>
+
+  <!-- Frame A -->
+  <circle cx="190" cy="390" r="5" fill="#0f172a"/>
+  <text x="145" y="420" font-family="sans-serif" font-size="18" font-weight="bold">Oₐ / Frame A</text>
+  <line x1="190" y1="390" x2="350" y2="430" stroke="#dc2626" stroke-width="4" marker-end="url(#red)"/>
+  <line x1="190" y1="390" x2="90" y2="315" stroke="#16a34a" stroke-width="4" marker-end="url(#green)"/>
+  <line x1="190" y1="390" x2="190" y2="220" stroke="#2563eb" stroke-width="4" marker-end="url(#blue)"/>
+  <text x="357" y="442" font-family="sans-serif" font-size="18" fill="#dc2626">xₐ</text>
+  <text x="62" y="309" font-family="sans-serif" font-size="18" fill="#16a34a">yₐ</text>
+  <text x="198" y="215" font-family="sans-serif" font-size="18" fill="#2563eb">zₐ</text>
+
+  <!-- Frame B -->
+  <circle cx="500" cy="290" r="5" fill="#0f172a"/>
+  <text x="458" y="322" font-family="sans-serif" font-size="18" font-weight="bold">Oᵦ / Frame B</text>
+  <line x1="500" y1="290" x2="615" y2="205" stroke="#dc2626" stroke-width="4" marker-end="url(#red)"/>
+  <line x1="500" y1="290" x2="615" y2="338" stroke="#16a34a" stroke-width="4" marker-end="url(#green)"/>
+  <line x1="500" y1="290" x2="500" y2="132" stroke="#2563eb" stroke-width="4" marker-end="url(#blue)"/>
+  <text x="624" y="201" font-family="sans-serif" font-size="18" fill="#dc2626">xᵦ</text>
+  <text x="624" y="350" font-family="sans-serif" font-size="18" fill="#16a34a">yᵦ</text>
+  <text x="508" y="126" font-family="sans-serif" font-size="18" fill="#2563eb">zᵦ</text>
+
+  <!-- Translation and point -->
+  <line x1="198" y1="386" x2="490" y2="293" stroke="#64748b" stroke-width="3" stroke-dasharray="9 7" marker-end="url(#gray)"/>
+  <text x="300" y="315" font-family="sans-serif" font-size="19" fill="#475569">t(A←B) = OₐOᵦ</text>
+
+  <circle cx="675" cy="155" r="8" fill="#7c3aed"/>
+  <text x="690" y="153" font-family="sans-serif" font-size="22" font-weight="bold" fill="#7c3aed">P</text>
+  <line x1="505" y1="286" x2="668" y2="160" stroke="#7c3aed" stroke-width="4" marker-end="url(#purple)"/>
+  <text x="590" y="255" font-family="sans-serif" font-size="19" fill="#7c3aed">p [B]</text>
+  <line x1="196" y1="384" x2="668" y2="160" stroke="#7c3aed" stroke-width="2.5" stroke-dasharray="8 6" marker-end="url(#purple)" opacity="0.72"/>
+  <text x="390" y="220" font-family="sans-serif" font-size="19" fill="#7c3aed">p [A]</text>
+
+  <rect x="655" y="300" width="218" height="150" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
+  <text x="675" y="332" font-family="sans-serif" font-size="18" font-weight="bold" fill="#0f172a">核心向量关系</text>
+  <text x="675" y="366" font-family="serif" font-size="18" fill="#0f172a">p[A] = R[A←B] p[B]</text>
+  <text x="675" y="390" font-family="serif" font-size="18" fill="#0f172a">       + t[A←B]</text>
+  <text x="675" y="418" font-family="sans-serif" font-size="14" fill="#475569">先统一表达坐标系，</text>
+  <text x="675" y="440" font-family="sans-serif" font-size="14" fill="#475569">再进行向量相加。</text>
+</svg>
