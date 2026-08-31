@@ -40,6 +40,7 @@ winget install --id Gyan.FFmpeg -e
 | 欧拉角与万向节锁 | `02-euler-gimbal/storyboard.md` | `02-euler-gimbal/euler_gimbal.py` | `EulerGimbalExplainer` |
 | Rodrigues 几何构造 | `02-rodrigues/storyboard.md` | `02-rodrigues/rodrigues_explainer.py` | `RodriguesGeometricExplainer` |
 | 四元数与 SLERP | `02-quaternion-slerp/storyboard.md` | `02-quaternion-slerp/quaternion_slerp.py` | `QuaternionSlerpExplainer` |
+| SE(3) 与变换链 | `03-se3-transform-chain/storyboard.md` | `03-se3-transform-chain/se3_transform_chain.py` | `SE3TransformChainExplainer` |
 
 ## 渲染流程
 
@@ -63,3 +64,5 @@ python -m manim -qh -s 02-euler-gimbal/euler_gimbal.py EulerGimbalPoster
 - `site/public/videos/02-rodrigues-geometric-explainer.mp4`
 - `site/public/videos/02-quaternion-slerp.mp4`
 - 对应海报位于 `site/public/assets/02-*-poster.png`
+- `site/public/videos/03-se3-transform-chain.mp4`
+- `site/public/assets/03-se3-transform-chain-poster.png`

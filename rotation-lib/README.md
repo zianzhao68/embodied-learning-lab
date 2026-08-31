@@ -1,6 +1,6 @@
-# Embodied Spatial：NumPy / PyTorch 旋转工具库
+# Embodied Spatial：NumPy / PyTorch 空间变换工具库
 
-第二课《三维旋转表示》的工程实现。NumPy 与 PyTorch 后端采用相同函数名、批量维度和数值约定，覆盖 SO(3)、轴角、四元数、ZYX 欧拉角、复合和 SLERP。
+第二、三课的工程实现。NumPy 与 PyTorch 后端采用相同函数名、批量维度和数值约定，覆盖 SO(3) 旋转表示，以及 SE(3) 齐次变换、复合、解析逆和相对位姿。
 
 ## 固定约定
 
@@ -12,7 +12,9 @@
 | 四元数 | 标量在前 `(w, x, y, z)` |
 | 欧拉角 | `(yaw, pitch, roll)`，`R = Rz(yaw) @ Ry(pitch) @ Rx(roll)` |
 | 轴角 | 旋转向量 `axis * angle`，角度单位为弧度 |
-| 复合 | `quaternion_multiply(left, right)` 先作用 `right`，再作用 `left` |
+| 复合 | `quaternion_multiply(left, right)` 和 `compose_transforms(left, right)` 都先作用 `right` |
+| SE(3) 方向 | `T_A_B` 表示 A←B，把 B 系坐标转换成 A 系 |
+| 齐次语义 | 点的 `w=1`，方向的 `w=0`；API 分为 `transform_points` 与 `transform_directions` |
 
 不要把本库的 `(w,x,y,z)` 直接传给默认采用 `(x,y,z,w)` 的第三方 API。
 
@@ -74,7 +76,18 @@ loss.backward()
 - `project_to_so3`
 - `rotation_matrix_error`
 
-所有转换都接受前导批量维度，例如 `(B,T,4) -> (B,T,3,3)`。
+SE(3) 后端 `se3_numpy` / `se3_torch` 提供：
+
+- `make_transform` / `split_transform`
+- `transform_points` / `transform_directions`
+- `compose_transforms`
+- `inverse_transform`
+- `relative_transform`
+- `quaternion_translation_to_transform`
+- `project_to_se3`
+- `transform_error`
+
+所有转换都接受前导批量维度，例如 `(B,T,4) -> (B,T,3,3)` 或 `(B,T,4,4)`。
 
 ## 数值与奇异性策略
 
@@ -99,7 +112,11 @@ loss.backward()
 - SLERP 端点、单位范数与最短分支正确；
 - NumPy/PyTorch 数值一致；
 - PyTorch 梯度有限；
-- 带噪矩阵及反射矩阵可投影到合法 SO(3)。
+- 带噪矩阵及反射矩阵可投影到合法 SO(3)；
+- SE(3) 点/方向的平移语义正确；
+- 复合平移、解析逆与相对位姿满足闭环性质；
+- 刚体变换保持点间距离；
+- 带噪齐次矩阵可投影到合法 SE(3)。
 
 随机测试使用固定种子，便于复现失败。
 

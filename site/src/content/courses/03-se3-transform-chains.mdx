@@ -1,0 +1,558 @@
+---
+title: SE(3) 与机器人变换链
+slug: se3-transform-chains
+order: 3
+phase: 机器人基础
+description: 从刚体上的多个点出发，理解齐次变换、SE(3) 复合、逆变换、相对位姿和眼在手上抓取链路。
+duration: 150–180 分钟
+level: 基础
+tags:
+  - SE(3)
+  - 齐次变换
+  - 变换链
+published: true
+---
+
+import CourseVideo from '../../components/CourseVideo.astro'
+
+# SE(3) 与机器人变换链
+
+<div class="lead">相机说“物体在我前方 40 cm”，机器人基座却不知道“我”在哪里；机械臂一动，眼在手上的相机也跟着动。第三课要解决的不是再背一个 4×4 矩阵，而是把每段位姿的来源、方向和时间正确接成一条可执行的抓取链。</div>
+
+## 本课目标
+
+完成本课后，你应该能够：
+
+- 区分点、方向、坐标系位姿和刚体主动运动；
+- 从 $\mathbf p'=\mathbf R\mathbf p+\mathbf t$ 构造齐次变换；
+- 解释 $\mathrm{SE}(3)$ 中旋转块、平移块和最后一行的作用；
+- 从分块乘法推导复合平移 $\mathbf R_1\mathbf t_2+\mathbf t_1$；
+- 独立计算逆变换与两个位姿之间的相对变换；
+- 写出眼在手上相机到机器人抓取位姿的完整变换链；
+- 使用 NumPy/PyTorch 性质测试检查实现。
+
+## 先备知识
+
+需要完成：
+
+- 第一课：坐标系、列向量、旋转和平移、上下标消去法；
+- 第二课：$\mathrm{SO}(3)$、轴角、四元数与旋转复合。
+
+> **本课统一约定**：
+>
+> $$
+> {}^{\mathrm A}\mathbf T_{\mathrm B}
+> \equiv
+> \mathbf T_{\mathrm A\leftarrow\mathrm B}
+> $$
+>
+> 表示把 B 系中的坐标转换成 A 系坐标。矩阵从右向左作用。$\mathbf R$ 无单位；平移 $\mathbf t$ 与点 $\mathbf p$ 在工程中统一使用米。
+
+## 01 · 一块刚体移动，不是每个点各走各的
+
+想象相机外壳上贴着两个标记点 $P$ 和 $Q$。相机移动后：
+
+- 两个点之间的距离不变；
+- 两点连线夹角关系不变；
+- 所有点共享同一个旋转 $\mathbf R$ 和同一个平移 $\mathbf t$。
+
+对于刚体上任意点：
+
+<div class="formula-focus">
+
+$$
+\mathbf p'
+=
+\mathbf R\mathbf p+\mathbf t
+$$
+
+</div>
+
+这里：
+
+- $\mathbf p\in\mathbb R^3$：运动前的点坐标，单位为米；
+- $\mathbf R\in\mathrm{SO}(3)$：对整个刚体使用的主动旋转；
+- $\mathbf t\in\mathbb R^3$：在输出坐标系表达的平移，单位为米；
+- $\mathbf p'\in\mathbb R^3$：运动后的点坐标。
+
+若取刚体上的两个点 $\mathbf p,\mathbf q$：
+
+$$
+\lVert\mathbf p'-\mathbf q'\rVert_2
+=
+\lVert\mathbf R(\mathbf p-\mathbf q)\rVert_2
+=
+\lVert\mathbf p-\mathbf q\rVert_2
+$$
+
+平移在做差时抵消，旋转保持长度，这就是“刚体”的可验证含义。
+
+### 和上一课四元数的关系
+
+四元数 $\mathbf q$ 只负责产生旋转 $\mathbf R(\mathbf q)$：
+
+$$
+\mathbf p'=\mathbf R(\mathbf q)\mathbf p+\mathbf t
+$$
+
+因此普通单位四元数不是“旋转和平移一块搞定”。机器人位姿通常保存为一对 $(\mathbf t,\mathbf q)$，计算变换链时再转为 $4\times4$ 齐次矩阵。
+
+<div class="warning"><strong>不要混淆：</strong>$(x,y,z)$ 点坐标不是依次沿三轴运动三次；$(w,x,y,z)$ 四元数也不是一次平移加三次旋转。它们都是参数，不是动作清单。</div>
+
+## 02 · 为什么增加齐次坐标
+
+旋转是乘法，平移是加法：
+
+$$
+\mathbf p'=\mathbf R\mathbf p+\mathbf t
+$$
+
+为了让旋转和平移能够统一进入矩阵乘法，给三维量增加一个齐次分量 $w$。
+
+### 点的最后一位是 1
+
+$$
+\widetilde{\mathbf p}
+=
+\begin{bmatrix}\mathbf p\\1\end{bmatrix}
+$$
+
+定义齐次变换：
+
+<div class="formula-focus">
+
+$$
+\mathbf T
+=
+\begin{bmatrix}
+\mathbf R&\mathbf t\\
+\mathbf 0^{\mathsf T}&1
+\end{bmatrix}
+$$
+
+</div>
+
+则：
+
+$$
+\mathbf T\widetilde{\mathbf p}
+=
+\begin{bmatrix}
+\mathbf R\mathbf p+1\cdot\mathbf t\\1
+\end{bmatrix}
+$$
+
+最后的 1 不是第四个空间方向，而是一个开关：让平移参与点的变换。
+
+### 方向的最后一位是 0
+
+速度、坐标轴方向和普通自由向量没有固定起点，平移坐标系原点不应改变它们：
+
+$$
+\widetilde{\mathbf v}
+=
+\begin{bmatrix}\mathbf v\\0\end{bmatrix},
+\qquad
+\mathbf T\widetilde{\mathbf v}
+=
+\begin{bmatrix}\mathbf R\mathbf v\\0\end{bmatrix}
+$$
+
+因为 $0\cdot\mathbf t=\mathbf0$，平移自动被消掉。
+
+<figure class="diagram-card wide-diagram">
+  <img src="../../assets/03-point-vs-direction.svg" alt="齐次坐标中点的最后一位为 1 因此受到平移，方向的最后一位为 0 因此只受到旋转" />
+  <figcaption>读图顺序：先看相同的前三维量，再看最后一位如何控制平移项。点、方向和法向量不能不加区分地调用同一个变换函数。</figcaption>
+</figure>
+
+<div class="warning"><strong>法向量补充：</strong>对纯刚体旋转，法向量同样乘 $\mathbf R$。若以后处理包含缩放或剪切的一般仿射变换，法向量需要逆转置，不能沿用本节结论。</div>
+
+## 03 · SE(3)：合法刚体变换的集合
+
+特殊欧氏群（Special Euclidean Group），记为 $\mathrm{SE}(3)$：
+
+$$
+\mathrm{SE}(3)
+=
+\left\{
+\begin{bmatrix}\mathbf R&\mathbf t\\\mathbf0^{\mathsf T}&1\end{bmatrix}
+\ \middle|\
+\mathbf R\in\mathrm{SO}(3),\ \mathbf t\in\mathbb R^3
+\right\}
+$$
+
+一个合法 $\mathrm{SE}(3)$ 元素必须满足：
+
+1. 左上角 $\mathbf R$ 正交且 $\det(\mathbf R)=1$；
+2. 右上角 $\mathbf t$ 是三维平移；
+3. 最后一行严格为 $(0,0,0,1)$。
+
+### 为什么称为“群”
+
+这里的“群”不是抽象装饰，它对应四个工程事实：
+
+- **封闭性**：两个合法刚体变换相乘，结果仍是合法刚体变换；
+- **结合律**：长链可以分段缓存，但不能交换顺序；
+- **单位元**：$\mathbf I_4$ 表示什么都不做；
+- **逆元**：每个合法变换都能沿原路径返回。
+
+注意 $\mathrm{SE}(3)$ 通常不可交换：
+
+$$
+\mathbf T_1\mathbf T_2\ne\mathbf T_2\mathbf T_1
+$$
+
+“先旋转再沿世界 x 平移”和“先沿物体 x 平移再旋转”一般不是同一条轨迹。
+
+## 04 · 复合公式是怎样长出来的
+
+设：
+
+$$
+{}^{\mathrm A}\mathbf T_{\mathrm B}
+=
+\begin{bmatrix}
+{}^{\mathrm A}\mathbf R_{\mathrm B}&{}^{\mathrm A}\mathbf t_{\mathrm B}\\
+\mathbf0^{\mathsf T}&1
+\end{bmatrix},
+\qquad
+{}^{\mathrm B}\mathbf T_{\mathrm C}
+=
+\begin{bmatrix}
+{}^{\mathrm B}\mathbf R_{\mathrm C}&{}^{\mathrm B}\mathbf t_{\mathrm C}\\
+\mathbf0^{\mathsf T}&1
+\end{bmatrix}
+$$
+
+从右向左先 C→B，再 B→A：
+
+$$
+{}^{\mathrm A}\mathbf T_{\mathrm C}
+=
+{}^{\mathrm A}\mathbf T_{\mathrm B}
+{}^{\mathrm B}\mathbf T_{\mathrm C}
+$$
+
+展开分块乘法：
+
+<div class="formula-focus">
+
+$$
+{}^{\mathrm A}\mathbf R_{\mathrm C}
+=
+{}^{\mathrm A}\mathbf R_{\mathrm B}
+{}^{\mathrm B}\mathbf R_{\mathrm C},
+\qquad
+{}^{\mathrm A}\mathbf t_{\mathrm C}
+=
+{}^{\mathrm A}\mathbf R_{\mathrm B}
+{}^{\mathrm B}\mathbf t_{\mathrm C}
++
+{}^{\mathrm A}\mathbf t_{\mathrm B}
+$$
+
+</div>
+
+第二式最容易写错。${}^{\mathrm B}\mathbf t_{\mathrm C}$ 原本在 B 系表达，不能直接和 A 系表达的 ${}^{\mathrm A}\mathbf t_{\mathrm B}$ 相加。必须先乘 ${}^{\mathrm A}\mathbf R_{\mathrm B}$，把它转成 A 系表达。
+
+<figure class="diagram-card wide-diagram">
+  <img src="../../assets/03-se3-composition.svg" alt="C 到 B、B 到 A 的变换链及 SE3 分块复合公式" />
+  <figcaption>绿色位移先从 B 系转到 A 系，再与 A 系平移相加。上下标消去不仅检查矩阵顺序，也检查相加的向量是否在同一坐标系。</figcaption>
+</figure>
+
+<CourseVideo
+  title="动画详解：平移为什么不能直接相加"
+  duration="27 秒"
+  src="../../videos/03-se3-transform-chain.mp4"
+  poster="../../assets/03-se3-transform-chain-poster.png"
+  caption="跟随一个点从 C 系进入 B 系再进入 A 系，观察第二段平移先被旋转到 A 系，最后组成眼在手上的完整抓取链。"
+/>
+
+### 完整手算
+
+设 B 系相对 A 系绕 $+z$ 旋转 $90^\circ$，B 原点在 A 系为 $(1,2,0)$：
+
+$$
+{}^{\mathrm A}\mathbf R_{\mathrm B}
+=
+\begin{bmatrix}0&-1&0\\1&0&0\\0&0&1\end{bmatrix},
+\qquad
+{}^{\mathrm A}\mathbf t_{\mathrm B}
+=
+\begin{bmatrix}1\\2\\0\end{bmatrix}
+$$
+
+C 相对 B 不旋转，只沿 B 的 $+x$ 平移 2 m：
+
+$$
+{}^{\mathrm B}\mathbf R_{\mathrm C}=\mathbf I_3,
+\qquad
+{}^{\mathrm B}\mathbf t_{\mathrm C}
+=
+\begin{bmatrix}2\\0\\0\end{bmatrix}
+$$
+
+先把第二段平移转到 A 系：
+
+$$
+{}^{\mathrm A}\mathbf R_{\mathrm B}
+{}^{\mathrm B}\mathbf t_{\mathrm C}
+=
+\begin{bmatrix}0\\2\\0\end{bmatrix}
+$$
+
+于是：
+
+$$
+{}^{\mathrm A}\mathbf t_{\mathrm C}
+=
+\begin{bmatrix}0\\2\\0\end{bmatrix}
++
+\begin{bmatrix}1\\2\\0\end{bmatrix}
+=
+\begin{bmatrix}1\\4\\0\end{bmatrix}
+$$
+
+这不是 $(1,2,0)+(2,0,0)=(3,2,0)$，因为第二个“向右 2 m”是沿 B 的 x 轴；站在 A 看，B 的 x 轴已经指向 A 的 $+y$。
+
+若点在 C 系为 ${}^{\mathrm C}\mathbf p=(0.5,0,0)^{\mathsf T}$，则最终：
+
+$$
+{}^{\mathrm A}\mathbf p
+=
+\begin{bmatrix}1\\4.5\\0\end{bmatrix}
+$$
+
+可按两段验算：C→B 得 $(2.5,0,0)$，B→A 得 $(1,4.5,0)$。
+
+## 05 · 逆变换：返回时平移也要换表达
+
+若：
+
+$$
+{}^{\mathrm A}\mathbf T_{\mathrm B}
+=
+\begin{bmatrix}\mathbf R&\mathbf t\\\mathbf0^{\mathsf T}&1\end{bmatrix}
+$$
+
+从 A 返回 B：
+
+<div class="formula-focus">
+
+$$
+{}^{\mathrm B}\mathbf T_{\mathrm A}
+=
+\left({}^{\mathrm A}\mathbf T_{\mathrm B}\right)^{-1}
+=
+\begin{bmatrix}
+\mathbf R^{\mathsf T}&-\mathbf R^{\mathsf T}\mathbf t\\
+\mathbf0^{\mathsf T}&1
+\end{bmatrix}
+$$
+
+</div>
+
+推导从原式开始：
+
+$$
+{}^{\mathrm A}\mathbf p
+=
+\mathbf R{}^{\mathrm B}\mathbf p+\mathbf t
+$$
+
+先减平移，再乘 $\mathbf R^{\mathsf T}$：
+
+$$
+{}^{\mathrm B}\mathbf p
+=
+\mathbf R^{\mathsf T}{}^{\mathrm A}\mathbf p
+-
+\mathbf R^{\mathsf T}\mathbf t
+$$
+
+因此逆变换平移不是简单的 $-\mathbf t$。$\mathbf t$ 原来在 A 系表达；返回 B 系时还必须用 $\mathbf R^{\mathsf T}$ 改变表达坐标系。
+
+继续使用上例：
+
+$$
+-\mathbf R^{\mathsf T}\mathbf t
+=
+-\begin{bmatrix}0&1&0\\-1&0&0\\0&0&1\end{bmatrix}
+\begin{bmatrix}1\\2\\0\end{bmatrix}
+=
+\begin{bmatrix}-2\\1\\0\end{bmatrix}
+$$
+
+最可靠的性质测试是：
+
+$$
+\mathbf T\mathbf T^{-1}
+=
+\mathbf T^{-1}\mathbf T
+=
+\mathbf I_4
+$$
+
+## 06 · 相对位姿：A 和 B 都在世界系，如何求 A 看 B
+
+假设已知两个位姿：
+
+- ${}^{\mathrm W}\mathbf T_{\mathrm A}$：A 在世界 W 中的位姿；
+- ${}^{\mathrm W}\mathbf T_{\mathrm B}$：B 在世界 W 中的位姿。
+
+要求 B 在 A 中的表达 ${}^{\mathrm A}\mathbf T_{\mathrm B}$。先从 A 返回 W 的反方向？用上下标直接构造：
+
+<div class="formula-focus">
+
+$$
+{}^{\mathrm A}\mathbf T_{\mathrm B}
+=
+{}^{\mathrm A}\mathbf T_{\mathrm W}
+{}^{\mathrm W}\mathbf T_{\mathrm B}
+=
+\left({}^{\mathrm W}\mathbf T_{\mathrm A}\right)^{-1}
+{}^{\mathrm W}\mathbf T_{\mathrm B}
+$$
+
+</div>
+
+这回答了机器人中的常见问题：
+
+- 目标相对当前末端还差多少；
+- 物体 B 相对物体 A 在哪里；
+- 当前帧相机相对上一帧如何运动。
+
+### 位姿误差不是直接减 4×4 矩阵
+
+目标位姿和当前位姿的相对变换应写成：
+
+$$
+\mathbf T_{\mathrm{err}}
+=
+\mathbf T_{\mathrm{current}}^{-1}
+\mathbf T_{\mathrm{target}}
+$$
+
+然后分别读取相对平移和相对旋转。直接计算 $\mathbf T_{\mathrm{target}}-\mathbf T_{\mathrm{current}}$ 通常不再属于 $\mathrm{SE}(3)$，也没有正确的几何复合语义。
+
+## 07 · 主动移动物体与被动转换坐标
+
+同一个数值矩阵可能出现在两种句子中：
+
+1. **主动刚体运动**：在固定坐标系中，把物体上的点从 $\mathbf p$ 移到 $\mathbf p'=\mathbf T\mathbf p$；
+2. **被动坐标转换**：空间点没有动，只把它从 B 系坐标改写为 A 系坐标：${}^{\mathrm A}\mathbf p={}^{\mathrm A}\mathbf T_{\mathrm B}{}^{\mathrm B}\mathbf p$。
+
+矩阵运算形式相似，但问题不同。阅读 API 或论文时必须问：
+
+- 物体真的动了吗？
+- 还是观察者/参考坐标系变了？
+- $\mathbf T$ 的输入 frame 和输出 frame 分别是谁？
+
+<div class="warning"><strong>诊断方法：</strong>不要只看矩阵数字。选一个原点和三个基向量分别送入变换：原点结果暴露平移方向，三个基向量结果暴露旋转方向。</div>
+
+## 08 · 眼在手上的完整抓取链
+
+眼在手上（eye-in-hand）相机固定在末端执行器上，因此相机相对基座的位姿会随机器人运动。
+
+设：
+
+- ${}^{\mathrm{base}}\mathbf T_{\mathrm{ee}}(t)$：由关节状态/TF 在时刻 $t$ 给出，动态；
+- ${}^{\mathrm{ee}}\mathbf T_{\mathrm{camera}}$：手眼标定结果，通常固定；
+- ${}^{\mathrm{camera}}\mathbf T_{\mathrm{object}}(t)$：视觉在时刻 $t$ 的观测，动态；
+- ${}^{\mathrm{object}}\mathbf T_{\mathrm{grasp}}$：物体坐标系中的抓取模板，通常固定。
+
+完整目标为：
+
+<div class="formula-focus">
+
+$$
+{}^{\mathrm{base}}\mathbf T_{\mathrm{grasp}}
+=
+{}^{\mathrm{base}}\mathbf T_{\mathrm{ee}}(t)
+{}^{\mathrm{ee}}\mathbf T_{\mathrm{camera}}
+{}^{\mathrm{camera}}\mathbf T_{\mathrm{object}}(t)
+{}^{\mathrm{object}}\mathbf T_{\mathrm{grasp}}
+$$
+
+</div>
+
+从右向左读：抓取位姿先从 object 转到 camera，再到 ee，最后到 base。
+
+<figure class="diagram-card wide-diagram">
+  <img src="../../assets/03-eye-in-hand-chain.svg" alt="base、末端、眼在手上相机、物体和抓取位姿组成的完整变换链，并标出动态项和固定项" />
+  <figcaption>蓝色项必须随机器人状态或视觉帧更新，绿色项来自标定和抓取模板。链路数值正确但时间戳错位，仍会造成系统性抓取偏差。</figcaption>
+</figure>
+
+### 眼在手外不是同一条链
+
+若相机固定在环境中（eye-to-hand），${}^{\mathrm{base}}\mathbf T_{\mathrm{camera}}$ 通常是固定标定：
+
+$$
+{}^{\mathrm{base}}\mathbf T_{\mathrm{grasp}}
+=
+{}^{\mathrm{base}}\mathbf T_{\mathrm{camera}}
+{}^{\mathrm{camera}}\mathbf T_{\mathrm{object}}
+{}^{\mathrm{object}}\mathbf T_{\mathrm{grasp}}
+$$
+
+不能把眼在手上的动态相机位姿误当成该固定外参。
+
+### 变换链的工程检查清单
+
+1. **frame 名**：每个相邻上下标是否能消去；
+2. **方向**：接口给的是 parent←child 还是 child←parent；
+3. **时间戳**：机器人关节状态与相机帧是否同步；
+4. **单位**：米、毫米是否统一，角度是否为弧度；
+5. **静态/动态**：哪些标定只算一次，哪些每帧更新；
+6. **最后一行**：是否仍为 $(0,0,0,1)$；
+7. **旋转合法性**：$\mathbf R^{\mathsf T}\mathbf R\approx\mathbf I$、$\det\mathbf R\approx1$；
+8. **闭环**：$\mathbf T_{\mathrm A\leftarrow\mathrm B}\mathbf T_{\mathrm B\leftarrow\mathrm A}\approx\mathbf I_4$。
+
+## 09 · NumPy/PyTorch 实验
+
+`rotation-lib` 新增与 SO(3) 后端一致的 SE(3) API：
+
+```python
+import numpy as np
+from embodied_spatial import numpy as so3
+from embodied_spatial import se3_numpy as se3
+
+R_A_B = so3.axis_angle_to_matrix([0.0, 0.0, np.pi / 2])
+T_A_B = se3.make_transform(R_A_B, [1.0, 2.0, 0.0])
+T_B_C = se3.make_transform(np.eye(3), [2.0, 0.0, 0.0])
+
+T_A_C = se3.compose_transforms(T_A_B, T_B_C)
+p_A = se3.transform_points(T_A_C, [0.5, 0.0, 0.0])
+print(p_A)  # [1.0, 4.5, 0.0]
+```
+
+点和方向必须调用不同函数：
+
+```python
+point_out = se3.transform_points(T_A_B, [1.0, 0.0, 0.0])
+direction_out = se3.transform_directions(T_A_B, [1.0, 0.0, 0.0])
+```
+
+运行完整测试：
+
+```powershell
+cd D:\vla\rotation-lib
+python -m pip install -e .
+python -m unittest discover -s tests -v
+```
+
+当前 31 项测试包含：SE(3) 复合顺序、解析逆、相对位姿、点/方向语义、距离保持、SVD 投影、NumPy/PyTorch 对齐和自动微分。
+
+<div class="insight"><strong>推荐故障注入：</strong>暂时把复合平移改成 $\mathbf t_2+\mathbf t_1$，观察“完整手算”和性质测试怎样同时失败；恢复后再继续下一节。</div>
+
+## 本课小结
+
+- 刚体上的所有点共享同一个 $\mathbf R$ 和 $\mathbf t$，点间距离保持；
+- 普通四元数只编码旋转，完整位姿还需要平移；
+- 齐次坐标中点取 $w=1$、方向取 $w=0$；
+- $\mathrm{SE}(3)$ 的旋转块属于 $\mathrm{SO}(3)$，最后一行为 $(0,0,0,1)$；
+- 复合平移是 $\mathbf R_1\mathbf t_2+\mathbf t_1$，因为相加前必须统一表达坐标系；
+- 逆变换平移是 $-\mathbf R^{\mathsf T}\mathbf t$；
+- 相对位姿为 $({}^{\mathrm W}\mathbf T_{\mathrm A})^{-1}{}^{\mathrm W}\mathbf T_{\mathrm B}$；
+- 主动运动与被动坐标转换形式相似，但物理问题不同；
+- 眼在手上链路必须同时检查 frame、方向、时间戳、单位和动态项。

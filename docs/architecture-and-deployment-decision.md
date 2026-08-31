@@ -117,8 +117,8 @@ videos/
 
 rotation-lib/
 ├─ src/embodied_spatial/
-│  ├─ numpy.py
-│  └─ torch.py
+│  ├─ numpy.py / torch.py
+│  └─ se3_numpy.py / se3_torch.py
 ├─ tests/
 ├─ examples/
 └─ artifacts/

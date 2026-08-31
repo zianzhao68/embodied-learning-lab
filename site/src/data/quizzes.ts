@@ -150,5 +150,82 @@ export const quizzes: Record<string, QuizQuestion[]> = {
       explain: '字段顺序、角度单位、旋转方向和坐标系语义都会造成姿态错误；数组长度不能说明约定。',
       multiple: true
     }
+  ],
+  'se3-transform-chains': [
+    {
+      question: '刚体变换对同一刚体上的任意两点保持什么性质？',
+      options: ['每个点到世界原点的距离不变', '两点之间的距离不变', '每个点的三个坐标数字不变', '平移向量始终为零'],
+      answer: [1],
+      explain: '两点做差时共同平移抵消，旋转矩阵保持向量长度，因此刚体内部点间距离不变；点到世界原点的距离可以改变。'
+    },
+    {
+      question: '普通单位四元数与完整机器人位姿的关系是什么？',
+      options: ['四元数同时编码旋转和平移', '四元数只编码旋转，完整位姿还需要平移向量', '四元数只编码平移', '四元数的 xyz 分量就是三轴平移'],
+      answer: [1],
+      explain: '单位四元数表示 SO(3) 旋转。常见机器人位姿使用 (t,q)，再构造成 SE(3) 齐次矩阵。'
+    },
+    {
+      question: '齐次坐标中，为什么点使用 $w=1$、方向使用 $w=0$？',
+      options: ['w 表示时间', 'w 控制平移项：点受到平移，方向不应因原点移动而改变', '方向只能在二维中使用', '这样能让旋转矩阵行列式变成 0'],
+      answer: [1],
+      explain: '矩阵乘法的右上平移块会乘 w。w=1 时得到 Rp+t；w=0 时只得到 Rv。'
+    },
+    {
+      question: '一个 $4\times4$ 矩阵属于 $\mathrm{SE}(3)$，哪些条件必须满足？（多选）',
+      options: ['左上角属于 SO(3)', '右上角是三维平移', '最后一行为 $(0,0,0,1)$', '所有 16 个元素都必须非零'],
+      answer: [0, 1, 2],
+      explain: 'SE(3) 的标准分块形式为 [R t; 0 1]，其中 R∈SO(3)、t∈R³；元素是否为零不是合法性条件。',
+      multiple: true
+    },
+    {
+      question: '已知 ${}^{\mathrm A}\mathbf T_{\mathrm B}$ 与 ${}^{\mathrm B}\mathbf T_{\mathrm C}$，正确复合是哪一个？',
+      options: ['${}^{\mathrm A}\mathbf T_{\mathrm C}={}^{\mathrm A}\mathbf T_{\mathrm B}{}^{\mathrm B}\mathbf T_{\mathrm C}$', '${}^{\mathrm A}\mathbf T_{\mathrm C}={}^{\mathrm B}\mathbf T_{\mathrm C}{}^{\mathrm A}\mathbf T_{\mathrm B}$', '${}^{\mathrm C}\mathbf T_{\mathrm A}={}^{\mathrm A}\mathbf T_{\mathrm B}+{}^{\mathrm B}\mathbf T_{\mathrm C}$', '顺序任意'],
+      answer: [0],
+      explain: '从右向左先 C→B，再 B→A；相邻 B 上下标消去，得到 A←C。'
+    },
+    {
+      question: '若 $\mathbf R_1=\mathbf R_z(90^\circ)$、$\mathbf t_1=(1,2,0)$，第二段 $\mathbf t_2=(2,0,0)$ 在中间坐标系表达，则复合平移是多少？',
+      options: ['(3,2,0)', '(1,4,0)', '(-1,2,0)', '(1,0,0)'],
+      answer: [1],
+      explain: '先计算 R₁t₂=(0,2,0)，再加 t₁=(1,2,0)，得到 (1,4,0)。不能直接相加不同坐标系表达的平移。'
+    },
+    {
+      question: '$\mathbf T=[\mathbf R\ \mathbf t;\mathbf0^{\mathsf T}\ 1]$ 的逆变换平移为什么是 $-\mathbf R^{\mathsf T}\mathbf t$？',
+      options: ['只需把所有矩阵元素取负', '返回时既要反向平移，也要把该平移改写到逆变换的输出坐标系', '为了使最后一行变成零', '因为 R 的行列式是 −1'],
+      answer: [1],
+      explain: '从 p_A=Rp_B+t 解出 p_B=Rᵀp_A−Rᵀt；−t 仍在原输出系表达，必须再乘 Rᵀ。'
+    },
+    {
+      question: '已知 ${}^{\mathrm W}\mathbf T_{\mathrm A}$ 和 ${}^{\mathrm W}\mathbf T_{\mathrm B}$，B 相对 A 的位姿是什么？',
+      options: ['$({}^{\mathrm W}\mathbf T_{\mathrm A})^{-1}{}^{\mathrm W}\mathbf T_{\mathrm B}$', '${}^{\mathrm W}\mathbf T_{\mathrm A}+{}^{\mathrm W}\mathbf T_{\mathrm B}$', '${}^{\mathrm W}\mathbf T_{\mathrm A}({}^{\mathrm W}\mathbf T_{\mathrm B})^{-1}$', '${}^{\mathrm W}\mathbf T_{\mathrm B}-{}^{\mathrm W}\mathbf T_{\mathrm A}$'],
+      answer: [0],
+      explain: '先由 A 返回 W，再由 W 进入 B：A←W · W←B = A←B。'
+    },
+    {
+      question: '主动刚体运动与被动坐标转换的主要区别是什么？',
+      options: ['主动运动中物体实际移动；被动转换中空间点不动，只改变坐标表达', '被动转换一定包含缩放', '主动运动不能使用矩阵', '两者永远使用不同数值矩阵'],
+      answer: [0],
+      explain: '两者可能出现相同矩阵形式，但回答的物理问题不同；必须结合输入/输出 frame 和语义判断。'
+    },
+    {
+      question: '眼在手上系统中，从抓取模板到 base 的正确链路是哪一个？',
+      options: ['T_base_ee · T_ee_camera · T_camera_object · T_object_grasp', 'T_object_grasp · T_camera_object · T_ee_camera · T_base_ee', 'T_base_camera · T_ee_object', '四段变换直接相加'],
+      answer: [0],
+      explain: '从右向左依次 grasp→object→camera→ee→base，相邻 frame 名配对。'
+    },
+    {
+      question: '眼在手上链路中，哪些通常是动态项？（多选）',
+      options: ['由当前关节状态得到的 T_base_ee', '每帧视觉得到的 T_camera_object', '离线手眼标定 T_ee_camera', '固定抓取模板 T_object_grasp'],
+      answer: [0, 1],
+      explain: '末端相对 base 的位姿随关节运动更新，物体观测随视觉帧更新；手眼外参与抓取模板通常固定但需版本化。',
+      multiple: true
+    },
+    {
+      question: '抓取点出现稳定偏差或随运动漂移时，应优先检查哪些项目？（多选）',
+      options: ['frame 方向与乘法顺序', '机器人状态和图像时间戳', '米/毫米单位', '静态与动态变换是否混淆', '直接增加视觉模型训练轮数'],
+      answer: [0, 1, 2, 3],
+      explain: '稳定偏差和运动相关漂移首先指向坐标链、时序、单位或外参使用问题；盲目增加训练轮数不能修复几何链路错误。',
+      multiple: true
+    }
   ]
 }
