@@ -1,0 +1,24 @@
+---
+interface Props {
+  title: string
+  duration: string
+  src: string
+  poster: string
+  caption: string
+}
+
+const { title, duration, src, poster, caption } = Astro.props
+---
+
+<figure class="video-card" data-course-video>
+  <div class="video-card-heading">
+    <span aria-hidden="true">▶</span>
+    <strong>{title}</strong>
+    <small>{duration}</small>
+  </div>
+  <video controls playsinline preload="metadata" poster={poster} aria-label={title}>
+    <source src={src} type="video/mp4" />
+    当前浏览器不支持视频播放，请继续阅读下方的等价文字与公式推导。
+  </video>
+  <figcaption>{caption} 视频不替代下方文字与公式推导。</figcaption>
+</figure>

@@ -110,6 +110,7 @@ site/
 
 videos/
 ├─ requirements.txt
+├─ manim_style.py
 └─ <topic>/
    ├─ storyboard.md
    └─ *.py

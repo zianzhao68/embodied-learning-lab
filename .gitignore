@@ -9,8 +9,13 @@
 **/__pycache__/
 *.pyc
 videos/**/media*/
+videos/media*/
+videos/smoke*/
+videos/poster-smoke/
 videos/**/*contact-sheet*.png
 videos/**/frame-*.png
+videos/contact-*.png
+videos/qa-*.png
 .DS_Store
 Thumbs.db
 

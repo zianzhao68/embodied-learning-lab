@@ -13,6 +13,8 @@ tags:
 published: true
 ---
 
+import CourseVideo from '../../components/CourseVideo.astro'
+
 # 三维旋转表示：从欧拉角到四元数
 
 <div class="lead">相机给出四元数，ROS 消息把字段写成 x、y、z、w，调试界面却显示 roll、pitch、yaw。它们描述的是同一个姿态，但如果顺序、方向或约定错一个，机械臂就可能朝完全不同的方向运动。</div>
@@ -54,6 +56,14 @@ published: true
   <img src="../../assets/02-rotation-representations.svg" alt="同一个末端姿态分别使用旋转矩阵、欧拉角、轴角和单位四元数表示" />
   <figcaption>表示方法不是不同的旋转，而是描述同一个旋转的不同坐标语言。</figcaption>
 </figure>
+
+<CourseVideo
+  title="动画详解：四种旋转语言与 SO(3)"
+  duration="26 秒"
+  src="../../videos/02-rotation-representations-so3.mp4"
+  poster="../../assets/02-rotation-representations-so3-poster.png"
+  caption="同一组三轴依次映射到矩阵、欧拉角、轴角和四元数，并动态区分合法旋转与镜像反射。"
+/>
 
 <div class="insight"><strong>选择原则：</strong>不要问“哪种表示最好”，而要问“当前操作是什么”。应用到向量用矩阵，给人看用欧拉角，解释最短旋转用轴角，插值和状态传输常用四元数。</div>
 
@@ -145,6 +155,14 @@ $$
 > - 角度单位：degree 还是 radian；
 > - 作用语义：主动旋转物体，还是被动更换坐标表达。
 
+<CourseVideo
+  title="动画详解：欧拉角顺序、内外旋与万向节锁"
+  duration="32 秒"
+  src="../../videos/02-euler-gimbal-lock.mp4"
+  poster="../../assets/02-euler-gimbal-lock-poster.png"
+  caption="从旋转不可交换开始，展示内旋/外旋的参考轴差异，以及 pitch 逐渐把 roll 轴转到 yaw 轴上的全过程。"
+/>
+
 ### 万向节锁：不是 pitch 被锁死
 
 先纠正一个容易误解的名字：在 ZYX 中，并不是 pitch 这个角“不能再动”，而是当中间角 pitch 到达 $\pm90^{\circ}$ 时，原本负责 yaw 和 roll 的两根旋转轴落到同一条直线上。三个控制方向只剩两个独立方向，所以丢失了一个瞬时自由度。
@@ -214,13 +232,13 @@ $$
 
 ### 动画详解：圆心、半径与辅助切向方向
 
-<figure class="video-card">
-  <video controls playsinline preload="metadata" poster="../../assets/02-rodrigues-video-poster.png" aria-label="Rodrigues 几何构造动画详解">
-    <source src="../../videos/02-rodrigues-geometric-explainer.mp4" type="video/mp4" />
-    当前浏览器不支持视频播放，请继续阅读下方的等价文字与公式推导。
-  </video>
-  <figcaption>53 秒动画：以 $\mathbf{p}=(2,0,3)^{\mathsf T}$ 绕 $+z$ 轴旋转为例，依次展示找圆心、找半径、构造切向辅助方向和加回圆心。视频不替代下方推导。</figcaption>
-</figure>
+<CourseVideo
+  title="动画详解：Rodrigues 的几何构造"
+  duration="40 秒"
+  src="../../videos/02-rodrigues-geometric-explainer.mp4"
+  poster="../../assets/02-rodrigues-video-poster.png"
+  caption="以点 (2,0,3) 绕 +z 轴旋转为例，依次展示圆心、半径、叉乘辅助方向和二维旋转权重。"
+/>
 
 ### 第一步：找旋转圆的圆心和半径
 
@@ -481,6 +499,14 @@ $$
   <img src="../../assets/02-axis-angle-quaternion.svg" alt="轴角通过余弦和正弦半角转换成标量在前的单位四元数，并展示 q 和负 q 表示相同旋转" />
   <figcaption>四元数使用半角将三维旋转编码到四维单位球面上；它不是把角度随意除以 2。</figcaption>
 </figure>
+
+<CourseVideo
+  title="动画详解：四元数半角、双覆盖与 SLERP"
+  duration="33 秒"
+  src="../../videos/02-quaternion-slerp.mp4"
+  poster="../../assets/02-quaternion-slerp-poster.png"
+  caption="同步展示物理角与四元数半角，解释单位范数、q 与 −q 的双覆盖、复合顺序和最短路径插值。"
+/>
 
 单位约束为：
 
