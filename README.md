@@ -74,19 +74,20 @@ npm run dev
 5. 图例放入 `site/public/assets/`；复杂交互后续使用按需加载的 Three.js island。
 6. 执行 `npm run check`、`npm run build` 和 `npm audit`，并检查 390px 与 1440px 页面。
 7. 测试成绩保存在当前设备 `localStorage`，正式学习结果仍同步回本主文档。
+8. 新概念必须从熟悉例子渐进切入并逐一定义符号；公式要解释构造来源，奇异性要包含触发机制、数值例子和不触发的反例；术语首次出现时给出常用中文、英文与别名。
 
 ## 5. 当前状态（每次会话优先读取）
 
 - 当前阶段：阶段 1——机器人基础
 - 当前周：第 1～2 周——空间表示
 - 当前知识点：02 SO(3)、欧拉角、轴角与四元数
-- 当前状态：Astro 主站已通过 GitHub Pages 公网发布；第二课正文、3 张 SVG 和 10 道测试已完成，等待学习者正式学习
+- 当前状态：Astro 主站已通过 GitHub Pages 公网发布；第二课根据首轮学习反馈完成解释深化，现有 4 张 SVG 和 12 道测试，等待学习者复查
 - 当前课程：01 `coordinate-frames`；02 `rotation-representations`
 - GitHub 仓库：`https://github.com/zianzhao68/embodied-learning-lab`
 - 公网地址：`https://zianzhao68.github.io/embodied-learning-lab/`
 - 第二课本地路由：`/courses/rotation-representations/`
 - 网页预览：`site/preview-course-02-desktop.png`、`site/preview-course-02-mobile.png`、`site/preview-course-02-mobile-diagram.png`
-- 下一步：学习第二课并完成测试；随后实现 NumPy/PyTorch 旋转转换与性质测试，形成第 1～2 周代码产出
+- 下一步：复查第二课的内/外旋、万向节锁和 Rodrigues 推导并完成测试；随后实现 NumPy/PyTorch 旋转转换与性质测试
 - 阻塞项：尚未用真实手机网络记录公网首屏体验；真实机器人尚未到位，不影响当前学习
 
 ## 6. 掌握度看板
@@ -118,7 +119,8 @@ npm run dev
 | 2026-08-30 | 调研手机适配与公网发布 | 完成 Astro/现有 Vite/文档框架对比，以及 GitHub Pages、EdgeOne Makers、Cloudflare Pages、Vercel 等方案调研；形成 ADR-001 | 官方配额、Git 部署和域名/备案规则已核查 | 提议从 Vite SPA 迁移 Astro；先零成本 GitHub Pages，国内长期用 EdgeOne + 域名 | 用户确认公开仓库和域名条件后实施 |
 | 2026-08-30 | 主站迁移到 Astro | 新建 `site/` 主站；迁移第一课、KaTeX、SVG、10 题测试、首页和路线；增加 Content Collections schema、静态课程路由、移动端折叠目录和课程模板 | `astro check` 0 错误/0 警告/0 提示；静态构建 4 页；审计 0 漏洞；390px 无横向溢出；测试交互 10/10 验证通过 | 为避免破坏性覆盖，旧版 `web/` 保留，`site/` 成为主站 | 配置代码托管和公网发布 |
 | 2026-08-30 | GitHub 首次发布与 Pages 配置 | 初始化 Git、合并远程 LICENSE、推送完整项目；增加 GitHub Pages Actions 工作流和 Astro base path 适配 | Pages 工作流重新运行成功；默认公网地址 HTTP 200 | 仓库条件变更为可公开，因此恢复 GitHub Pages 首发方案 | 使用真实手机网络验收公网体验 |
-| 2026-08-30 | 制作并发布第二课《三维旋转表示》 | 讲解 SO(3)、ZYX 欧拉角、万向节锁、Rodrigues 公式、轴角、四元数双覆盖、复合和 SLERP；新增 3 张 SVG 与 10 道测试 | `astro check` 0 错误/0 警告/0 提示；构建 5 页；审计 0 漏洞；1440px/390px 无页面溢出；图像加载正常；测试自动验收 10/10；Actions `33298307762` 成功，公网课程和 3 个资源均 HTTP 200 | 为保证手机图中文字清晰，第二课宽图在移动端改为图卡内部横向滚动 | 学习者完成第二课测试；随后实现 NumPy/PyTorch 旋转工具与性质测试 |
+| 2026-08-30 | 制作并发布第二课《三维旋转表示》 | 讲解 SO(3)、ZYX 欧拉角、万向节锁、Rodrigues 公式、轴角、四元数双覆盖、复合和 SLERP；新增 3 张 SVG 与 10 道测试 | `astro check` 0 错误/0 警告/0 提示；构建 5 页；审计 0 漏洞；1440px/390px 无页面溢出；图像加载正常；测试自动验收 10/10；Actions `33298307762` 成功，公网课程和 3 个资源均 HTTP 200 | 为保证手机图中文字清晰，第二课宽图在移动端改为图卡内部横向滚动 | 学习第二课并收集理解障碍 |
+| 2026-08-31 | 根据首轮反馈深化第二课 | 明确万向节锁是中间角导致首末轴共线，增加同姿态参数组合和不触发反例；将“内禀/外禀”改为常用“内旋/外旋”并修复约定排版；从二维、向量分解和叉乘分量展开推导 Rodrigues；重画万向节锁图并新增分解图；题目增至 12 道；课程标准升级 v1.3 | `astro check` 0 错误/0 警告/0 提示；Pages 模式构建 5 页；审计 0 漏洞；390px 无页面溢出、图片完整；测试自动验收 12/12 | 原解释直接引入叉乘矩阵和 Rodrigues，未定义待旋转向量；万向节锁只给结论且术语不够常用 | 发布更新并由学习者复查三个问题 |
 
 ## 8. 会话恢复协议
 

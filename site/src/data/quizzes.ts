@@ -93,7 +93,19 @@ export const quizzes: Record<string, QuizQuestion[]> = {
       question: 'ZYX 欧拉角在 pitch 为 $\\pm90^{\\circ}$ 附近出现万向节锁，其本质是什么？',
       options: ['机器人少了一个物理关节', '旋转矩阵不再正交', '欧拉角参数化奇异，roll 与 yaw 发生耦合', '四元数范数变成 0'],
       answer: [2],
-      explain: '物理姿态仍有 3 个自由度，但该欧拉角坐标在奇异位置失去唯一性。'
+      explain: '物理姿态仍有 3 个自由度；中间的 pitch 把 yaw 轴与 roll 轴转到同一直线，使两个参数只剩一个有效组合。'
+    },
+    {
+      question: '在固定 ZYX 约定下，roll 为 $90^{\\circ}$、pitch 为 $0^{\\circ}$，是否发生万向节锁？',
+      options: ['会，因为任意一个角到 90° 都会锁', '不会，ZYX 的奇异由中间角 pitch 到 ±90° 触发', '会，因为旋转矩阵行列式变成 −1', '无法判断，因为还缺少平移'],
+      answer: [1],
+      explain: '三个不同轴的欧拉角顺序中，奇异位置由中间旋转决定。ZYX 的中间角是 pitch；单独让 roll 或 yaw 到 90° 不会触发。'
+    },
+    {
+      question: '叉乘矩阵 $[\\mathbf{u}]_{\\times}$ 的含义是什么？',
+      options: ['把 u 的每个分量平方', '把“与 u 做叉乘”写成线性矩阵运算，使 $[\\mathbf{u}]_{\\times}\\mathbf{p}=\\mathbf{u}\\times\\mathbf{p}$', '计算 u 的长度', '把任意向量投影到 u 上'],
+      answer: [1],
+      explain: '逐分量展开 u×p，并收集 pₓ、pᵧ、p_z 的系数，就得到这个反对称矩阵；它不是额外规定。'
     },
     {
       question: '轴角 Rodrigues 旋转中，单位旋转轴 $\\mathbf{u}$ 满足哪个关系？',

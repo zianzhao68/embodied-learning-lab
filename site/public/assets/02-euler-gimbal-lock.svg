@@ -1,21 +1,33 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="960" height="500" viewBox="0 0 960 500">
-  <defs><marker id="r" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#dc4f42"/></marker><marker id="g" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#24945c"/></marker><marker id="b" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#3568d4"/></marker></defs>
+  <defs>
+    <marker id="blue" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0L9 4.5L0 9Z" fill="#3568d4"/></marker>
+    <marker id="red" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0L9 4.5L0 9Z" fill="#dc4f42"/></marker>
+    <marker id="green" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0L9 4.5L0 9Z" fill="#24945c"/></marker>
+  </defs>
   <rect width="960" height="500" rx="22" fill="#f8faf8"/>
-  <text x="36" y="45" font-family="sans-serif" font-size="24" font-weight="700" fill="#17201d">ZYX 欧拉角：顺序不同，旋转就不同</text>
-  <text x="36" y="74" font-family="sans-serif" font-size="14" fill="#69726e">列向量约定下：R = Rz(yaw) Ry(pitch) Rx(roll)，矩阵从右向左作用。</text>
+  <text x="36" y="45" font-family="sans-serif" font-size="24" font-weight="700" fill="#17201d">万向节锁：pitch 没有锁死，是 yaw 与 roll 的轴重合</text>
+  <text x="36" y="75" font-family="sans-serif" font-size="15" fill="#69726e">ZYX 内旋中，pitch 是中间旋转；它改变了后续 roll 轴的方向。</text>
+
   <rect x="32" y="104" width="420" height="350" rx="17" fill="#fff" stroke="#d9dfda"/>
-  <text x="55" y="137" font-family="sans-serif" font-size="18" font-weight="700" fill="#17201d">正常姿态：三个旋转轴彼此独立</text>
-  <ellipse cx="242" cy="282" rx="142" ry="62" fill="none" stroke="#3568d4" stroke-width="5"/>
-  <ellipse cx="242" cy="282" rx="72" ry="145" fill="none" stroke="#24945c" stroke-width="5" transform="rotate(-25 242 282)"/>
-  <ellipse cx="242" cy="282" rx="66" ry="142" fill="none" stroke="#dc4f42" stroke-width="5" transform="rotate(55 242 282)"/>
-  <text x="75" y="370" font-family="sans-serif" font-size="14" fill="#3568d4">yaw：绕 z</text><text x="75" y="397" font-family="sans-serif" font-size="14" fill="#24945c">pitch：绕 y</text><text x="75" y="424" font-family="sans-serif" font-size="14" fill="#b84035">roll：绕 x</text>
+  <text x="55" y="139" font-family="sans-serif" font-size="18" font-weight="700" fill="#17201d">正常：pitch ≠ ±90°</text>
+  <circle cx="242" cy="282" r="7" fill="#17201d"/>
+  <line x1="242" y1="282" x2="242" y2="169" stroke="#3568d4" stroke-width="6" marker-end="url(#blue)"/>
+  <line x1="242" y1="282" x2="367" y2="282" stroke="#dc4f42" stroke-width="6" marker-end="url(#red)"/>
+  <line x1="242" y1="282" x2="164" y2="359" stroke="#24945c" stroke-width="5" marker-end="url(#green)"/>
+  <text x="255" y="172" font-family="sans-serif" font-size="15" fill="#2859bd">yaw：固定 z 轴</text>
+  <text x="300" y="270" font-family="sans-serif" font-size="15" fill="#b84035">roll：当前 x 轴</text>
+  <text x="92" y="378" font-family="sans-serif" font-size="15" fill="#176b52">pitch：中间 y 轴</text>
+  <text x="63" y="421" font-family="sans-serif" font-size="14" fill="#69726e">三根轴方向不同，可独立产生三种小旋转。</text>
+
   <rect x="508" y="104" width="420" height="350" rx="17" fill="#fff" stroke="#e4c5bc"/>
-  <text x="531" y="137" font-family="sans-serif" font-size="18" font-weight="700" fill="#7b3932">pitch = +90°：两个轴重合</text>
-  <ellipse cx="718" cy="282" rx="142" ry="62" fill="none" stroke="#3568d4" stroke-width="7"/>
-  <ellipse cx="718" cy="282" rx="68" ry="142" fill="none" stroke="#24945c" stroke-width="5"/>
-  <ellipse cx="718" cy="282" rx="142" ry="62" fill="none" stroke="#dc4f42" stroke-width="3" stroke-dasharray="9 7"/>
-  <line x1="576" y1="282" x2="860" y2="282" stroke="#7f8984" stroke-width="2" stroke-dasharray="7 7"/>
-  <text x="542" y="379" font-family="sans-serif" font-size="14" fill="#7b3932">yaw 与 roll 只剩一个组合自由度</text>
-  <text x="542" y="408" font-family="sans-serif" font-size="14" fill="#69726e">不是姿态消失，而是欧拉角坐标失去唯一性。</text>
-  <text x="542" y="435" font-family="sans-serif" font-size="13" fill="#b26b23">这就是万向节锁（gimbal lock）。</text>
+  <text x="531" y="139" font-family="sans-serif" font-size="18" font-weight="700" fill="#7b3932">奇异：pitch = +90°</text>
+  <circle cx="718" cy="282" r="7" fill="#17201d"/>
+  <line x1="718" y1="282" x2="718" y2="169" stroke="#3568d4" stroke-width="9" marker-end="url(#blue)"/>
+  <line x1="718" y1="282" x2="718" y2="395" stroke="#dc4f42" stroke-width="6" marker-end="url(#red)"/>
+  <line x1="718" y1="282" x2="828" y2="282" stroke="#24945c" stroke-width="5" marker-end="url(#green)"/>
+  <text x="737" y="174" font-family="sans-serif" font-size="15" fill="#2859bd">yaw：+z</text>
+  <text x="737" y="394" font-family="sans-serif" font-size="15" fill="#b84035">roll：−z</text>
+  <text x="777" y="270" font-family="sans-serif" font-size="15" fill="#176b52">pitch</text>
+  <rect x="535" y="415" width="366" height="25" rx="8" fill="#fff1ec"/>
+  <text x="718" y="433" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="700" fill="#7b3932">yaw 与 roll 反向共线，只剩一个有效方向</text>
 </svg>

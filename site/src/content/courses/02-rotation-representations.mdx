@@ -4,7 +4,7 @@ slug: rotation-representations
 order: 2
 phase: 机器人基础
 description: 理解 SO(3)、欧拉角、轴角和四元数之间的关系，学会选择、转换、组合与诊断旋转表示。
-duration: 100–130 分钟
+duration: 120–150 分钟
 level: 基础
 tags:
   - SO(3)
@@ -104,7 +104,7 @@ $$
 
 ## 03 · 欧拉角：容易读，但必须带着顺序
 
-欧拉角通过连续三次绕轴旋转表达姿态。机器人中常见 ZYX 约定：
+欧拉角通过连续三次绕轴旋转表达姿态。严格分类时，ZYX 这种三个轴都不同的形式叫 **Tait–Bryan angles**；机器人工程中通常也统称为欧拉角。本课采用常见 ZYX 约定：
 
 - roll：绕 x 轴，记为 $\phi$；
 - pitch：绕 y 轴，记为 $\theta$；
@@ -124,39 +124,82 @@ $$
 
 </div>
 
-矩阵从右向左作用，所以一个向量先经历 roll，再经历 pitch，最后经历 yaw。
+同一个矩阵可以用两种等价方式阅读：
+
+- **内旋 ZYX**：依次绕物体当前的 $z$、转动后的 $y'$、再次转动后的 $x''$ 轴旋转；
+- **外旋 XYZ**：依次绕三个固定世界轴 $x$、$y$、$z$ 旋转。
+
+从矩阵乘向量的计算顺序看，最右侧先作用，因此是先 roll、再 pitch、最后 yaw。
+
+### 内旋与外旋：名称到底是什么
+
+- **内旋**（intrinsic rotation）：绕已经随物体改变方向的自身轴旋转；一些中文资料也写“内禀旋转”。
+- **外旋**（extrinsic rotation）：始终绕固定的世界轴旋转；也有资料写“外在旋转”。
+
+“内禀”是 intrinsic 的常见数学译法，例如“内禀性质”，并不是错误术语；但在欧拉角语境中，“内旋/外旋”更直接，本课后续优先使用这组名称。
+
+> **姿态接口必须同时写清四件事：**
+>
+> - 轴顺序：例如 ZYX，而不是只写“三个角”；
+> - 参考轴：内旋还是外旋；
+> - 角度单位：degree 还是 radian；
+> - 作用语义：主动旋转物体，还是被动更换坐标表达。
+
+### 万向节锁：不是 pitch 被锁死
+
+先纠正一个容易误解的名字：在 ZYX 中，并不是 pitch 这个角“不能再动”，而是当中间角 pitch 到达 $\pm90^{\circ}$ 时，原本负责 yaw 和 roll 的两根旋转轴落到同一条直线上。三个控制方向只剩两个独立方向，所以丢失了一个瞬时自由度。
 
 <figure class="diagram-card wide-diagram">
-  <img src="../../assets/02-euler-gimbal-lock.svg" alt="ZYX 欧拉角的三个旋转环，以及 pitch 等于 90 度时 yaw 与 roll 两个旋转轴重合形成万向节锁" />
-  <figcaption>正常姿态有三个独立旋转方向；pitch 到达 ±90° 时，yaw 与 roll 的作用发生耦合。</figcaption>
+  <img src="../../assets/02-euler-gimbal-lock.svg" alt="ZYX 欧拉角中正常状态下 yaw 轴与 roll 轴分离，而 pitch 等于 90 度时两轴反向共线" />
+  <figcaption>手机端可横向滑动。读图顺序：先看左侧两根独立轴；再看右侧 pitch 转到 90° 后，roll 轴与 yaw 轴反向共线。锁住的是两个控制方向的独立性，不是 pitch 数值。</figcaption>
 </figure>
 
-### 内禀旋转与外禀旋转
+为什么这会让 roll 和 yaw 出现多种组合？把 $\theta=+90^{\circ}$ 代入 ZYX 矩阵：
 
-- 外禀旋转：始终绕固定世界轴旋转；
-- 内禀旋转：绕已经随物体转动的自身轴旋转。
-
-一组内禀 ZYX 可以等价描述为逆序的外禀 XYZ，但文字和库 API 的命名并不总是一致。工程上不能只传三个角，还必须记录：
-
-```text
-轴顺序 + 内禀/外禀 + 角度单位 + 主动/被动约定
-```
-
-### 万向节锁不是机器人真的被锁住
-
-在 ZYX 约定中，当 $\theta=+90^{\circ}$ 时：
+<div class="formula-focus">
 
 $$
-\mathbf{R}_z(\psi)\mathbf{R}_y\!\left(\frac{\pi}{2}\right)\mathbf{R}_x(\phi)
+\mathbf{R}
+=
+\begin{bmatrix}
+0&\sin(\phi-\psi)&\cos(\phi-\psi)\\
+0&\cos(\phi-\psi)&-\sin(\phi-\psi)\\
+-1&0&0
+\end{bmatrix}
 $$
 
-最终只依赖 $\phi-\psi$ 的组合。不同的 roll/yaw 数值可以表示同一个姿态，因此丢失了一个参数自由度。
+</div>
 
-<div class="warning"><strong>关键区别：</strong>物理姿态仍有 3 个自由度；出问题的是欧拉角这套坐标在该位置变得奇异。换成旋转矩阵或四元数不会让姿态消失，但从它们转换回欧拉角时仍会遇到不唯一。</div>
+矩阵只看得到差值 $\phi-\psi$，看不到 $\phi$ 和 $\psi$ 各自是多少。例如下列三组参数完全不同，但都满足 $\phi-\psi=20^{\circ}$：
+
+| roll $\phi$ | yaw $\psi$ | 差值 | 最终姿态 |
+|---:|---:|---:|---|
+| $20^{\circ}$ | $0^{\circ}$ | $20^{\circ}$ | 相同 |
+| $50^{\circ}$ | $30^{\circ}$ | $20^{\circ}$ | 相同 |
+| $0^{\circ}$ | $-20^{\circ}$ | $20^{\circ}$ | 相同 |
+
+几何上，此时 yaw 轴和 roll 轴反向共线；同时给 $\phi$ 和 $\psi$ 增加相同角度，两次作用会互相抵消。代数上，这正对应“只剩 $\phi-\psi$”。
+
+### 如果锁的是 roll 或 yaw，也算万向节锁吗
+
+这里要区分“人为把一个角固定”与“参数化发生奇异”：
+
+- 在固定的 **ZYX** 约定中，仅仅令 roll $=90^{\circ}$ 或 yaw $=90^{\circ}$ **不会**触发万向节锁；只要 pitch 不在 $\pm90^{\circ}$，三根有效旋转方向仍然独立。
+- 如果改用其他三个不同轴的顺序，发生奇异的仍是**中间那次旋转**到达 $\pm90^{\circ}$。例如 ZXY 的中间轴是 x，此时表现为 roll 到达 $\pm90^{\circ}$。
+- 人为锁定某个电机关节只是少用一个自由度，不等于欧拉角参数化的万向节锁。
+
+<div class="warning"><strong>关键区别：</strong>物理姿态仍有 3 个自由度；出问题的是欧拉角坐标到物理姿态的映射在奇异点不再一一对应。旋转矩阵或四元数可以继续表示该姿态，但转换回同一套欧拉角时仍会不唯一。</div>
 
 ## 04 · 轴角：把旋转看成“绕哪根轴转多少”
 
-任意三维旋转都可以描述为：绕单位轴 $\mathbf{u}$ 旋转角度 $\alpha$。
+### 先从二维旋转退一步
+
+在二维平面中，旋转轴已经被默认固定为垂直屏幕的 $+z$ 轴，因此只需要一个角度 $\alpha$。到了三维，物体可以绕无数个方向旋转，所以必须多回答一个问题：**绕哪根轴？**
+
+轴角表示就是这两个答案：
+
+- $\mathbf{u}\in\mathbb{R}^{3}$：旋转轴的方向，规定为单位向量且无单位；
+- $\alpha\in\mathbb{R}$：按右手定则绕 $\mathbf{u}$ 旋转的角度，公式中使用 radian。
 
 $$
 \mathbf{u}=
@@ -165,25 +208,103 @@ $$
 \lVert\mathbf{u}\rVert_2=1
 $$
 
-先定义叉乘矩阵：
+如果给定的轴是非零向量 $\mathbf{a}$，先做 $\mathbf{u}=\mathbf{a}/\lVert\mathbf{a}\rVert_2$。要求单位长度不是形式主义：后面的投影长度和正弦项都依赖它。
+
+### 第一步：把待旋转向量拆成两部分
+
+设 $\mathbf{p}\in\mathbb{R}^{3}$ 是**将要被旋转的任意向量**。它不是旋转轴；例如它可以是末端坐标系的一根轴或某个点相对原点的位置。
+
+将 $\mathbf{p}$ 分成平行和垂直于旋转轴的两部分：
 
 $$
-[\mathbf{u}]_{\times}
+\mathbf{p}_{\parallel}
+=(\mathbf{u}^{\mathsf T}\mathbf{p})\mathbf{u}
+=\mathbf{u}\mathbf{u}^{\mathsf T}\mathbf{p}
+$$
+
+$$
+\mathbf{p}_{\perp}
+=\mathbf{p}-\mathbf{p}_{\parallel}
+=(\mathbf{I}_3-\mathbf{u}\mathbf{u}^{\mathsf T})\mathbf{p}
+$$
+
+绕 $\mathbf{u}$ 旋转时，平行分量 $\mathbf{p}_{\parallel}$ 沿着转轴，所以保持不变；真正画圆的是垂直分量 $\mathbf{p}_{\perp}$。
+
+### 第二步：叉乘给出圆周的正切方向
+
+还需要一个与 $\mathbf{p}_{\perp}$ 垂直、并指向正旋转方向的向量。右手定则恰好告诉我们：
+
+$$
+\mathbf{p}_{\mathrm{tan}}
+=\mathbf{u}\times\mathbf{p}
+$$
+
+这里 $\mathbf{p}_{\mathrm{tan}}$ 表示旋转圆周在当前位置的正切方向。因为 $\mathbf{u}$ 是单位向量，且叉乘会自动消去 $\mathbf{p}$ 的平行部分，所以 $\lVert\mathbf{p}_{\mathrm{tan}}\rVert_2=\lVert\mathbf{p}_{\perp}\rVert_2$。
+
+叉乘矩阵并不是额外发明的规则。把熟悉的叉乘逐分量展开：
+
+$$
+\mathbf{u}\times\mathbf{p}
 =
+\begin{bmatrix}
+u_y p_z-u_z p_y\\
+u_z p_x-u_x p_z\\
+u_x p_y-u_y p_x
+\end{bmatrix}
+=
+\underbrace{
 \begin{bmatrix}
 0&-u_z&u_y\\
 u_z&0&-u_x\\
 -u_y&u_x&0
-\end{bmatrix}
+\end{bmatrix}}_{[\mathbf{u}]_{\times}}
+\mathbf{p}
 $$
 
-它满足：
+$[\mathbf{u}]_{\times}\in\mathbb{R}^{3\times3}$ 只是把“与 $\mathbf{u}$ 做叉乘”写成矩阵乘法，因此：
 
 $$
-[\mathbf{u}]_{\times}\mathbf{v}=\mathbf{u}\times\mathbf{v}
+[\mathbf{u}]_{\times}\mathbf{p}=\mathbf{u}\times\mathbf{p}
 $$
 
-Rodrigues 公式把轴角转换为旋转矩阵：
+<figure class="diagram-card wide-diagram">
+  <img src="../../assets/02-rodrigues-decomposition.svg" alt="向量 p 被分解为沿旋转轴 u 的平行分量、垂直分量和由叉乘得到的切向分量" />
+  <figcaption>手机端可横向滑动。读图顺序：先沿 u 投影得到不动的平行分量，再在垂直平面中用 p_perp 与 u×p 作为两条互相垂直的方向。</figcaption>
+</figure>
+
+### 第三步：在垂直平面里做一次二维旋转
+
+现在回到了熟悉的二维圆周。旋转后的向量为：
+
+<div class="formula-focus">
+
+$$
+\mathbf{p}'
+=
+\mathbf{p}_{\parallel}
++
+\cos\alpha\,\mathbf{p}_{\perp}
++
+\sin\alpha\,\mathbf{p}_{\mathrm{tan}}
+$$
+
+</div>
+
+这三个项分别是“不动的轴向分量”“圆周上的余弦分量”和“沿正切方向的正弦分量”。把前两步的表达式代入：
+
+$$
+\mathbf{p}'
+=
+\left[
+\mathbf{u}\mathbf{u}^{\mathsf T}
++
+\cos\alpha(\mathbf{I}_3-\mathbf{u}\mathbf{u}^{\mathsf T})
++
+\sin\alpha[\mathbf{u}]_{\times}
+\right]\mathbf{p}
+$$
+
+整理括号，才得到 Rodrigues 旋转公式：
 
 <div class="formula-focus">
 
@@ -199,17 +320,42 @@ $$
 
 </div>
 
-可以把它理解成三个部分：
+所以 Rodrigues 公式并不是需要死记的三项，而是“轴向不动 + 垂直平面二维旋转”合并成矩阵后的结果。
 
-1. 沿旋转轴的分量保持不变；
-2. 垂直于轴的分量乘 $\cos\alpha$；
-3. 叉乘项把垂直分量沿切线方向推转 $\sin\alpha$。
+### 手算检查：绕 +z 轴旋转 +90°
 
-因此旋转轴本身满足：
+取：
 
 $$
-\mathbf{R}\mathbf{u}=\mathbf{u}
+\mathbf{u}=
+\begin{bmatrix}0\\0\\1\end{bmatrix},
+\qquad
+\mathbf{p}=
+\begin{bmatrix}1\\0\\0\end{bmatrix},
+\qquad
+\alpha=90^{\circ}
 $$
+
+此时 $\mathbf{p}_{\parallel}=\mathbf{0}$，$\mathbf{p}_{\perp}=\mathbf{p}$，而：
+
+$$
+\mathbf{p}_{\mathrm{tan}}
+=
+\mathbf{u}\times\mathbf{p}
+=
+\begin{bmatrix}0\\1\\0\end{bmatrix}
+$$
+
+因为 $\cos90^{\circ}=0$、$\sin90^{\circ}=1$：
+
+$$
+\mathbf{p}'
+=0\cdot\mathbf{p}_{\perp}+1\cdot\mathbf{p}_{\mathrm{tan}}
+=
+\begin{bmatrix}0\\1\\0\end{bmatrix}
+$$
+
+这正是右手定则下 $+x\rightarrow+y$。同时也能看出，旋转轴自身始终满足 $\mathbf{R}\mathbf{u}=\mathbf{u}$。
 
 ### 旋转向量
 
@@ -228,8 +374,10 @@ $$
 本课使用标量在前的单位四元数：
 
 $$
-\mathbf{q}=(w,x,y,z)=(w,\mathbf{v})
+\mathbf{q}=(w,x,y,z)
 $$
+
+其中 $w$ 是标量部，$(x,y,z)$ 是向量部；这里的三个分量不是空间中的待旋转向量 $\mathbf{p}$。
 
 由轴角 $(\mathbf{u},\alpha)$ 构造：
 
