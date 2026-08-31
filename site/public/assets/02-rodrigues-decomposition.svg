@@ -34,5 +34,6 @@
   <text x="807" y="220" font-family="sans-serif" font-size="16" fill="#b84035">旋转后的 p⊥</text>
   <path d="M790 306 A77 77 0 0 0 768 252" fill="none" stroke="#7b8580" stroke-width="3"/>
   <text x="782" y="280" font-family="serif" font-size="22" fill="#505a56">α</text>
-  <text x="544" y="444" font-family="sans-serif" font-size="14" fill="#69726e">cosα 沿 p⊥，sinα 沿 u×p。</text>
+  <text x="544" y="421" font-family="sans-serif" font-size="14" font-weight="700" fill="#995b1d">u×p 是辅助方向，不是 p 的第三个分量</text>
+  <text x="544" y="449" font-family="sans-serif" font-size="14" fill="#69726e">旋转后半径 = cosα·p⊥ + sinα·(u×p)</text>
 </svg>

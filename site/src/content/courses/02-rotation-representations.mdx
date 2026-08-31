@@ -210,11 +210,31 @@ $$
 
 如果给定的轴是非零向量 $\mathbf{a}$，先做 $\mathbf{u}=\mathbf{a}/\lVert\mathbf{a}\rVert_2$。要求单位长度不是形式主义：后面的投影长度和正弦项都依赖它。
 
-### 第一步：把待旋转向量拆成两部分
+<div class="insight"><strong>先看最终目的：</strong>我们要计算一个向量绕轴旋转后去了哪里。它的轨迹是一个圆，因此要先找圆心和半径，再找圆所在平面内的第二个方向。下面的操作就是依次回答这三个问题。</div>
 
-设 $\mathbf{p}\in\mathbb{R}^{3}$ 是**将要被旋转的任意向量**。它不是旋转轴；例如它可以是末端坐标系的一根轴或某个点相对原点的位置。
+### 第一步：找旋转圆的圆心和半径
 
-将 $\mathbf{p}$ 分成平行和垂直于旋转轴的两部分：
+设 $\mathbf{p}\in\mathbb{R}^{3}$ 是**将要被旋转的任意向量**。它不是旋转轴；例如它可以表示从原点指向空间点 P 的箭头。本节先讨论通过原点的旋转轴；若实际转轴不经过原点，需要先把点平移到轴原点，旋转后再平移回去。
+
+可以想象一根沿 $\mathbf{u}$ 放置的固定铁签，点 P 绕铁签转动。点 P 不会沿铁签上下滑动，只会围绕铁签画圆：
+
+- 从原点走到圆心的向量，是 $\mathbf{p}$ 沿旋转轴的**平行分量** $\mathbf{p}_{\parallel}$；
+- 从圆心指向点 P 的向量，是垂直于旋转轴的**半径** $\mathbf{p}_{\perp}$。
+
+因此这里只把 $\mathbf{p}$ 拆成两个真实分量：
+
+<div class="formula-focus">
+
+$$
+\mathbf{p}=\mathbf{p}_{\parallel}+\mathbf{p}_{\perp}
+$$
+
+</div>
+
+为什么平行分量这样计算？因为 $\mathbf{u}$ 是单位向量：
+
+1. 点积 $\mathbf{u}^{\mathsf T}\mathbf{p}$ 得到 $\mathbf{p}$ 在轴方向上的**有符号长度**；
+2. 再乘方向 $\mathbf{u}$，把这个长度还原成沿轴的向量。
 
 $$
 \mathbf{p}_{\parallel}
@@ -222,17 +242,48 @@ $$
 =\mathbf{u}\mathbf{u}^{\mathsf T}\mathbf{p}
 $$
 
+剩余部分自然就是从圆心指向 P 的半径：
+
 $$
 \mathbf{p}_{\perp}
 =\mathbf{p}-\mathbf{p}_{\parallel}
 =(\mathbf{I}_3-\mathbf{u}\mathbf{u}^{\mathsf T})\mathbf{p}
 $$
 
-绕 $\mathbf{u}$ 旋转时，平行分量 $\mathbf{p}_{\parallel}$ 沿着转轴，所以保持不变；真正画圆的是垂直分量 $\mathbf{p}_{\perp}$。
+它确实垂直于轴，因为：
 
-### 第二步：叉乘给出圆周的正切方向
+$$
+\mathbf{u}^{\mathsf T}\mathbf{p}_{\perp}
+=
+\mathbf{u}^{\mathsf T}\mathbf{p}
+-
+\underbrace{\mathbf{u}^{\mathsf T}\mathbf{u}}_{1}
+\mathbf{u}^{\mathsf T}\mathbf{p}
+=0
+$$
 
-还需要一个与 $\mathbf{p}_{\perp}$ 垂直、并指向正旋转方向的向量。右手定则恰好告诉我们：
+例如 $\mathbf{u}=(0,0,1)^{\mathsf T}$、$\mathbf{p}=(2,0,3)^{\mathsf T}$：
+
+$$
+\mathbf{p}_{\parallel}=
+\begin{bmatrix}0\\0\\3\end{bmatrix},
+\qquad
+\mathbf{p}_{\perp}=
+\begin{bmatrix}2\\0\\0\end{bmatrix}
+$$
+
+几何意义非常具体：旋转圆的圆心位于 $(0,0,3)$，半径为 2。旋转过程中高度 3 不变，只有水平半径在转。
+
+### 第二步：为圆平面找第二个坐标方向
+
+只有半径方向 $\mathbf{p}_{\perp}$，还不能描述它在圆平面内转过任意角度后的位置。就像二维坐标既需要 x 方向也需要 y 方向，我们还需要一个：
+
+- 位于同一个旋转平面；
+- 与 $\mathbf{p}_{\perp}$ 垂直；
+- 指向右手定则的正旋转方向；
+- 长度与半径相同的辅助方向。
+
+叉乘恰好同时满足这些条件：
 
 $$
 \mathbf{p}_{\mathrm{tan}}
@@ -240,6 +291,22 @@ $$
 $$
 
 这里 $\mathbf{p}_{\mathrm{tan}}$ 表示旋转圆周在当前位置的正切方向。因为 $\mathbf{u}$ 是单位向量，且叉乘会自动消去 $\mathbf{p}$ 的平行部分，所以 $\lVert\mathbf{p}_{\mathrm{tan}}\rVert_2=\lVert\mathbf{p}_{\perp}\rVert_2$。
+
+<div class="warning"><strong>不要把它当成第三个分量：</strong>$\mathbf{p}$ 只被拆成 $\mathbf{p}_{\parallel}$ 和 $\mathbf{p}_{\perp}$。$\mathbf{p}_{\mathrm{tan}}$ 是为了描述旋转而额外构造的第二个平面坐标方向，旋转前并不需要把它加回 $\mathbf{p}$。</div>
+
+在刚才的例子中：
+
+$$
+\mathbf{p}_{\mathrm{tan}}
+=
+\begin{bmatrix}0\\0\\1\end{bmatrix}
+\times
+\begin{bmatrix}2\\0\\3\end{bmatrix}
+=
+\begin{bmatrix}0\\2\\0\end{bmatrix}
+$$
+
+因此圆平面内的两个方向分别是：指向 $+x$ 的半径 $(2,0,0)^{\mathsf T}$，以及指向 $+y$ 的正切方向 $(0,2,0)^{\mathsf T}$。它们长度相同且互相垂直，正好像二维平面中的两根坐标轴。
 
 叉乘矩阵并不是额外发明的规则。把熟悉的叉乘逐分量展开：
 
@@ -268,8 +335,8 @@ $$
 $$
 
 <figure class="diagram-card wide-diagram">
-  <img src="../../assets/02-rodrigues-decomposition.svg" alt="向量 p 被分解为沿旋转轴 u 的平行分量、垂直分量和由叉乘得到的切向分量" />
-  <figcaption>手机端可横向滑动。读图顺序：先沿 u 投影得到不动的平行分量，再在垂直平面中用 p_perp 与 u×p 作为两条互相垂直的方向。</figcaption>
+  <img src="../../assets/02-rodrigues-decomposition.svg" alt="向量 p 先被分为平行分量和垂直半径，再额外构造叉乘切向方向以描述圆平面旋转" />
+  <figcaption>手机端可横向滑动。注意：左侧只把 p 分成平行与垂直两部分；右侧的 u×p 不是第三个分量，而是为了在圆平面中描述旋转而构造的辅助方向。</figcaption>
 </figure>
 
 ### 第三步：在垂直平面里做一次二维旋转
@@ -322,40 +389,46 @@ $$
 
 所以 Rodrigues 公式并不是需要死记的三项，而是“轴向不动 + 垂直平面二维旋转”合并成矩阵后的结果。
 
-### 手算检查：绕 +z 轴旋转 +90°
+### 完整手算：点 $(2,0,3)$ 绕 +z 轴旋转 +90°
 
-取：
+继续使用前面的例子：
 
 $$
-\mathbf{u}=
-\begin{bmatrix}0\\0\\1\end{bmatrix},
+\mathbf{p}_{\parallel}=
+\begin{bmatrix}0\\0\\3\end{bmatrix},
 \qquad
-\mathbf{p}=
-\begin{bmatrix}1\\0\\0\end{bmatrix},
+\mathbf{p}_{\perp}=
+\begin{bmatrix}2\\0\\0\end{bmatrix},
 \qquad
-\alpha=90^{\circ}
-$$
-
-此时 $\mathbf{p}_{\parallel}=\mathbf{0}$，$\mathbf{p}_{\perp}=\mathbf{p}$，而：
-
-$$
-\mathbf{p}_{\mathrm{tan}}
-=
-\mathbf{u}\times\mathbf{p}
-=
-\begin{bmatrix}0\\1\\0\end{bmatrix}
+\mathbf{p}_{\mathrm{tan}}=
+\begin{bmatrix}0\\2\\0\end{bmatrix}
 $$
 
 因为 $\cos90^{\circ}=0$、$\sin90^{\circ}=1$：
 
 $$
 \mathbf{p}'
-=0\cdot\mathbf{p}_{\perp}+1\cdot\mathbf{p}_{\mathrm{tan}}
 =
-\begin{bmatrix}0\\1\\0\end{bmatrix}
+\mathbf{p}_{\parallel}
++0\cdot\mathbf{p}_{\perp}
++1\cdot\mathbf{p}_{\mathrm{tan}}
+=
+\begin{bmatrix}0\\2\\3\end{bmatrix}
 $$
 
-这正是右手定则下 $+x\rightarrow+y$。同时也能看出，旋转轴自身始终满足 $\mathbf{R}\mathbf{u}=\mathbf{u}$。
+结果非常直观：圆心 $(0,0,3)$ 没动，半径从 $+x$ 转到了 $+y$，高度仍为 3。若旋转 $30^{\circ}$，则水平部分为：
+
+$$
+\cos30^{\circ}
+\begin{bmatrix}2\\0\\0\end{bmatrix}
++
+\sin30^{\circ}
+\begin{bmatrix}0\\2\\0\end{bmatrix}
+=
+\begin{bmatrix}\sqrt{3}\\1\\0\end{bmatrix}
+$$
+
+加回不动的圆心分量后得到 $\mathbf{p}'=(\sqrt{3},1,3)^{\mathsf T}$。这就是 Rodrigues 公式中余弦项和正弦项的目的。
 
 ### 旋转向量
 

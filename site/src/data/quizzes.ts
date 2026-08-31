@@ -108,6 +108,12 @@ export const quizzes: Record<string, QuizQuestion[]> = {
       explain: '逐分量展开 u×p，并收集 pₓ、pᵧ、p_z 的系数，就得到这个反对称矩阵；它不是额外规定。'
     },
     {
+      question: '关于 $\\mathbf{p}_{\\parallel}$、$\\mathbf{p}_{\\perp}$ 和 $\\mathbf{p}_{\\mathrm{tan}}$，哪项理解正确？',
+      options: ['$\\mathbf{p}$ 被拆成三个分量并直接相加', '$\\mathbf{p}=\\mathbf{p}_{\\parallel}+\\mathbf{p}_{\\perp}$；$\\mathbf{p}_{\\mathrm{tan}}$ 是描述圆平面旋转的辅助方向', '$\\mathbf{p}_{\\parallel}$ 是旋转半径', '$\\mathbf{p}_{\\mathrm{tan}}$ 始终等于旋转轴'],
+      answer: [1],
+      explain: '真实分解只有平行分量和垂直半径。切向量由叉乘构造，用作圆平面内与半径垂直的第二个坐标方向。'
+    },
+    {
       question: '轴角 Rodrigues 旋转中，单位旋转轴 $\\mathbf{u}$ 满足哪个关系？',
       options: ['$\\mathbf{R}\\mathbf{u}=\\mathbf{0}$', '$\\mathbf{R}\\mathbf{u}=\\mathbf{u}$', '$\\mathbf{R}\\mathbf{u}=-\\mathbf{u}$', '$\\lVert\\mathbf{u}\\rVert_2=0$'],
       answer: [1],
