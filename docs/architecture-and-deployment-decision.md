@@ -104,7 +104,15 @@ site/
 │  ├─ pages/
 │  ├─ styles/global.css
 │  └─ utils/url.ts
-└─ public/assets/
+└─ public/
+   ├─ assets/
+   └─ videos/
+
+videos/
+├─ requirements.txt
+└─ <topic>/
+   ├─ storyboard.md
+   └─ *.py
 ```
 
 ## 6. 实施与待确认项

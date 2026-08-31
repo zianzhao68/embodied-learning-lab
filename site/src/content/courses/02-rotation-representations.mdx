@@ -212,6 +212,16 @@ $$
 
 <div class="insight"><strong>先看最终目的：</strong>我们要计算一个向量绕轴旋转后去了哪里。它的轨迹是一个圆，因此要先找圆心和半径，再找圆所在平面内的第二个方向。下面的操作就是依次回答这三个问题。</div>
 
+### 动画详解：圆心、半径与辅助切向方向
+
+<figure class="video-card">
+  <video controls playsinline preload="metadata" poster="../../assets/02-rodrigues-video-poster.png" aria-label="Rodrigues 几何构造动画详解">
+    <source src="../../videos/02-rodrigues-geometric-explainer.mp4" type="video/mp4" />
+    当前浏览器不支持视频播放，请继续阅读下方的等价文字与公式推导。
+  </video>
+  <figcaption>53 秒动画：以 $\mathbf{p}=(2,0,3)^{\mathsf T}$ 绕 $+z$ 轴旋转为例，依次展示找圆心、找半径、构造切向辅助方向和加回圆心。视频不替代下方推导。</figcaption>
+</figure>
+
 ### 第一步：找旋转圆的圆心和半径
 
 设 $\mathbf{p}\in\mathbb{R}^{3}$ 是**将要被旋转的任意向量**。它不是旋转轴；例如它可以表示从原点指向空间点 P 的箭头。本节先讨论通过原点的旋转轴；若实际转轴不经过原点，需要先把点平移到轴原点，旋转后再平移回去。

@@ -6,6 +6,11 @@
 
 # Local previews and OS files
 **/preview-*.png
+**/__pycache__/
+*.pyc
+videos/**/media*/
+videos/**/*contact-sheet*.png
+videos/**/frame-*.png
 .DS_Store
 Thumbs.db
 

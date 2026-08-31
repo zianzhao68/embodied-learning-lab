@@ -43,6 +43,7 @@ npm run preview
 - Astro 静态生成
 - Content Collections + schema
 - Markdown/MDX + KaTeX
+- Manim 技术动画；源代码和分镜位于 `../videos/`，站点只发布压缩后的 MP4 与海报
 - 原生 TypeScript 交互，不引入整站前端框架
 - 学习进度暂存 `localStorage`
 

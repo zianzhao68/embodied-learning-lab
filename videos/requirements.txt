@@ -1,0 +1,2 @@
+manim==0.21.0
+msvc-runtime==14.44.35112; sys_platform == "win32"
