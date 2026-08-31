@@ -71,3 +71,5 @@ python -m manim -qh -s 02-euler-gimbal/euler_gimbal.py EulerGimbalPoster
 - `site/public/assets/04-planar-2r-forward-kinematics-poster.png`
 - `site/public/videos/05-ik-jacobian-singularity.mp4`
 - `site/public/assets/05-ik-jacobian-singularity-poster.png`
+- `site/public/videos/06-pinhole-camera-projection.mp4`
+- `site/public/assets/06-pinhole-camera-projection-poster.png`
