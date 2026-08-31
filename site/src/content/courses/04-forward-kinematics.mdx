@@ -1,0 +1,499 @@
+---
+title: 机械臂正运动学：从关节角到末端位姿
+slug: forward-kinematics
+order: 4
+phase: 机器人基础
+description: 从平面双连杆的向量和出发，掌握关节、连杆、串联变换链、标准 DH 与 POE 表示。
+duration: 150–180 分钟
+level: 基础
+tags:
+  - 正运动学
+  - DH 参数
+  - POE
+published: true
+---
+
+import CourseVideo from '../../components/CourseVideo.astro'
+
+# 机械臂正运动学：从关节角到末端位姿
+
+<div class="lead">控制器读取的是六个关节角，任务规划器想要的却是“夹爪在 base 坐标系中的位置和朝向”。正运动学要回答：已知每个关节当前是多少，末端执行器究竟在哪里？</div>
+
+## 本课目标
+
+完成本课后，你应该能够：
+
+- 区分关节、连杆、自由度、关节空间和任务空间；
+- 解释为什么上游关节会带动全部下游连杆；
+- 从向量首尾相加推导平面 2R 机械臂末端位置；
+- 使用 $\mathrm{SE}(3)$ 变换链表达串联机械臂正运动学；
+- 按标准 DH 约定分配坐标系并解释四个参数；
+- 区分标准 DH、改进 DH 与 POE 表示，避免混用；
+- 使用 NumPy/PyTorch 批量计算末端和各关节位姿。
+
+## 先备知识
+
+需要完成前三课，尤其是：
+
+- 旋转矩阵与四元数只编码旋转；
+- ${}^{\mathrm A}\mathbf T_{\mathrm B}$ 表示 A←B；
+- 变换链从右向左作用；
+- 复合平移必须先统一表达坐标系。
+
+> **本课约定**：关节变量组成列向量 $\mathbf q=(q_1,\ldots,q_n)^{\mathsf T}$。转动关节角度用弧度，移动关节位移和连杆长度统一使用米。二维示例使用逆时针为正。
+
+## 01 · 关节和连杆分别做什么
+
+### 连杆不是变量
+
+连杆（link）是理想刚体。它的形状和长度不随运动改变，连杆上的所有点共享同一个刚体变换。
+
+关节（joint）连接相邻连杆，并提供允许的相对运动。最常见的两类是：
+
+- **转动关节**（revolute joint）：绕关节轴旋转，关节变量 $q_i$ 是角度，单位 rad；
+- **移动关节**（prismatic joint，也称棱柱关节）：沿关节轴平移，关节变量 $q_i$ 是距离，单位 m。
+
+<figure class="diagram-card wide-diagram">
+  <img src="../../assets/04-joints-and-links.svg" alt="转动关节通过角度提供旋转自由度，移动关节通过距离提供平移自由度，并说明上游关节带动下游连杆" />
+  <figcaption>关节定义“允许怎样相对运动”，连杆负责把该运动传递给后续结构。转动一个肩关节时，肘部、腕部和夹爪都会一起移动。</figcaption>
+</figure>
+
+### 自由度不是坐标个数
+
+自由度（degree of freedom, DOF）是描述系统构型所需的独立变量数量。一个具有六个独立转动关节的机械臂通常有 6 DOF：
+
+$$
+\mathbf q
+=
+\begin{bmatrix}q_1&q_2&\cdots&q_6\end{bmatrix}^{\mathsf T}
+\in\mathbb R^6
+$$
+
+这不意味着末端执行六次互不相关的运动。每个 $q_i$ 只定义一对相邻连杆的关系，最终效果通过整条链复合。
+
+### 关节空间与任务空间
+
+- **关节空间**（joint space/configuration space）：用 $\mathbf q$ 描述机械臂构型；
+- **任务空间**（task space/operational space）：用末端位姿 ${}^{\mathrm{base}}\mathbf T_{\mathrm{ee}}$ 描述任务结果。
+
+正运动学（forward kinematics, FK）是映射：
+
+<div class="formula-focus">
+
+$$
+f:\mathbf q\longmapsto{}^{\mathrm{base}}\mathbf T_{\mathrm{ee}}(\mathbf q)
+$$
+
+</div>
+
+输入关节变量，输出末端位姿。下一课的逆运动学会反过来问：给定末端目标，怎样寻找 $\mathbf q$。
+
+## 02 · 先从一根连杆开始
+
+长度为 $l_1$ 的连杆绕 base 原点旋转 $q_1$。末端位置就是一个二维极坐标转换：
+
+$$
+{}^{\mathrm{base}}\mathbf p_1
+=
+l_1
+\begin{bmatrix}
+\cos q_1\\
+\sin q_1
+\end{bmatrix}
+$$
+
+这不是要背的机械臂公式。它只是说：长度为 $l_1$ 的向量，其方向角为 $q_1$。
+
+对应的齐次变换可以写成：
+
+$$
+{}^{0}\mathbf T_{1}(q_1)
+=
+\mathbf R_z(q_1)\mathbf T_x(l_1)
+=
+\begin{bmatrix}
+\cos q_1&-\sin q_1&0&l_1\cos q_1\\
+\sin q_1&\cos q_1&0&l_1\sin q_1\\
+0&0&1&0\\
+0&0&0&1
+\end{bmatrix}
+$$
+
+从右向左读：先在连杆自己的 x 方向走 $l_1$，再由关节把整根连杆绕 z 旋转 $q_1$。
+
+## 03 · 平面 2R：第二个角为什么是 q₁+q₂
+
+2R 表示两个转动关节。设：
+
+- $l_1,l_2$：两根连杆长度，单位 m；
+- $q_1$：第一连杆相对 base x 轴的角度；
+- $q_2$：第二连杆相对第一连杆的角度。
+
+关键是：$q_2$ 不是第二连杆相对世界的绝对角度。第二连杆已经被第一关节整体带着转了 $q_1$，然后才相对第一连杆再转 $q_2$，所以绝对方向是：
+
+<div class="formula-focus">
+
+$$
+q_{2,\mathrm{absolute}}=q_1+q_2
+$$
+
+</div>
+
+<figure class="diagram-card wide-diagram">
+  <img src="../../assets/04-planar-2r-vector-sum.svg" alt="平面二连杆机械臂中第一连杆方向为 q1，第二连杆绝对方向为 q1 加 q2，末端位置为两向量首尾相加" />
+  <figcaption>先从 base 到肘部，再从肘部到末端。第二个向量必须以肘部为起点，其方向为 $q_1+q_2$。</figcaption>
+</figure>
+
+因此肘部位置为：
+
+$$
+\mathbf p_{\mathrm{elbow}}
+=
+l_1
+\begin{bmatrix}\cos q_1\\\sin q_1\end{bmatrix}
+$$
+
+第二连杆向量为：
+
+$$
+\mathbf v_2
+=
+l_2
+\begin{bmatrix}\cos(q_1+q_2)\\\sin(q_1+q_2)\end{bmatrix}
+$$
+
+末端位置是二者相加：
+
+<div class="formula-focus">
+
+$$
+\begin{aligned}
+x_{\mathrm{ee}}
+&=l_1\cos q_1+l_2\cos(q_1+q_2)\\
+y_{\mathrm{ee}}
+&=l_1\sin q_1+l_2\sin(q_1+q_2)
+\end{aligned}
+$$
+
+</div>
+
+<CourseVideo
+  title="动画详解：q₁ 如何带动整条下游链"
+  duration="23 秒"
+  src="../../videos/04-planar-2r-forward-kinematics.mp4"
+  poster="../../assets/04-planar-2r-forward-kinematics-poster.png"
+  caption="先固定 q₂ 只改变 q₁，再固定 q₁ 改变 q₂，动态区分相对关节角、第二连杆绝对方向和末端向量和。"
+/>
+
+### 完整手算
+
+设：
+
+$$
+l_1=0.4\ \mathrm m,
+\quad
+l_2=0.3\ \mathrm m,
+\quad
+q_1=30^\circ,
+\quad
+q_2=60^\circ
+$$
+
+第二连杆绝对方向：
+
+$$
+q_1+q_2=90^\circ
+$$
+
+所以：
+
+$$
+\begin{aligned}
+x_{\mathrm{ee}}
+&=0.4\cos30^\circ+0.3\cos90^\circ
+=0.2\sqrt3\approx0.346\ \mathrm m\\
+y_{\mathrm{ee}}
+&=0.4\sin30^\circ+0.3\sin90^\circ
+=0.5\ \mathrm m
+\end{aligned}
+$$
+
+直觉检查：第一连杆末端是 $(0.346,0.2)$，第二连杆竖直向上 0.3 m，因此最终是 $(0.346,0.5)$。
+
+### 一个不触发 q₁+q₂ 混淆的反例
+
+若 $q_1=0$，则第二连杆绝对角刚好等于 $q_2$。这时错误公式会碰巧得到正确答案，因此不能只用 $q_1=0$ 测试实现。应至少增加一个 $q_1\ne0$ 的样例。
+
+## 04 · 从二维向量和升级为 SE(3) 变换链
+
+对于串联机械臂，frame 0 固定在 base，frame $i$ 固定在第 $i$ 根连杆。相邻变换为：
+
+$$
+{}^{i-1}\mathbf T_i(q_i)
+$$
+
+$n$ 个关节的末端位姿：
+
+<div class="formula-focus">
+
+$$
+{}^{0}\mathbf T_n(\mathbf q)
+=
+{}^{0}\mathbf T_1(q_1)
+{}^{1}\mathbf T_2(q_2)
+\cdots
+{}^{n-1}\mathbf T_n(q_n)
+$$
+
+</div>
+
+从右向左看，每个点先由末端局部系逐级转换到 base；从结构搭建看，则从左到右依次累积 base 到每根连杆的位姿。
+
+对于 2R：
+
+$$
+{}^{0}\mathbf T_2
+=
+\mathbf R_z(q_1)\mathbf T_x(l_1)
+\mathbf R_z(q_2)\mathbf T_x(l_2)
+$$
+
+展开右上角平移，正好恢复上一节的 $x_{\mathrm{ee}},y_{\mathrm{ee}}$。二维向量和不是另一套理论，而是 SE(3) 链在平面问题中的简化结果。
+
+### 为什么上游关节影响全部下游
+
+$q_1$ 位于整个乘积最左侧。它不仅旋转第一连杆，也会左乘后面所有局部变换，因此肘部、腕部和末端都会改变。最后一个关节则只影响它之后的结构。
+
+<div class="insight"><strong>调试方法：</strong>一次只改变一个关节，输出所有中间 frame。若改变 $q_i$ 后上游 frame 也变化，说明链索引或父子关系写反。</div>
+
+## 05 · DH 的目的：用四个数描述相邻关节轴
+
+直接为每一节手写任意 $4\times4$ 矩阵容易失去统一规则。Denavit–Hartenberg 参数法，简称 DH 法，用四个参数描述相邻 frame 的关系。
+
+本课采用**标准 DH**（standard DH）约定：
+
+<div class="formula-focus">
+
+$$
+{}^{i-1}\mathbf T_i
+=
+\mathbf R_z(\theta_i)
+\mathbf T_z(d_i)
+\mathbf T_x(a_i)
+\mathbf R_x(\alpha_i)
+$$
+
+</div>
+
+四个参数分别是：
+
+- $\theta_i$：绕 $z_{i-1}$ 的旋转角；转动关节通常把它作为变量；
+- $d_i$：沿 $z_{i-1}$ 的位移；移动关节通常把它作为变量；
+- $a_i$：沿 $x_i$ 的连杆长度，也就是相邻两根 z 轴公法线的长度；
+- $\alpha_i$：绕 $x_i$ 从 $z_{i-1}$ 转到 $z_i$ 的扭转角。
+
+<figure class="diagram-card wide-diagram">
+  <img src="../../assets/04-standard-dh-sequence.svg" alt="标准 DH 相邻变换依次由绕 z 旋转 theta、沿 z 平移 d、沿 x 平移 a 和绕 x 旋转 alpha 组成" />
+  <figcaption>四步的轴和顺序由标准 DH 定义。参数的几何意义依赖 frame 分配，不能脱离坐标系图只抄参数表。</figcaption>
+</figure>
+
+### 标准 DH 坐标系分配步骤
+
+1. 将 $z_{i-1}$ 放在第 $i$ 个关节的运动轴上；
+2. 令 $x_i$ 沿 $z_{i-1}$ 与 $z_i$ 的公法线；
+3. 原点放在公法线与对应 z 轴的交点；
+4. 用右手定则确定 $y_i=z_i\times x_i$；
+5. 再从图中读取 $\theta_i,d_i,a_i,\alpha_i$。
+
+若两根 z 轴相交，公法线长度 $a_i=0$；若平行，公法线方向存在选择，需要整条链保持一致。
+
+<div class="warning"><strong>高频错误：</strong>不同资料可能使用 frame $i$ 还是 frame $i-1$ 附着在连杆上的不同编号方式。判断实现不能只看变量名，必须核对四步乘法顺序。</div>
+
+## 06 · 标准 DH 矩阵不是需要死背的表
+
+将四个基本变换按顺序相乘，可以得到：
+
+$$
+{}^{i-1}\mathbf T_i
+=
+\begin{bmatrix}
+\cos\theta_i&-\sin\theta_i\cos\alpha_i&\sin\theta_i\sin\alpha_i&a_i\cos\theta_i\\
+\sin\theta_i&\cos\theta_i\cos\alpha_i&-\cos\theta_i\sin\alpha_i&a_i\sin\theta_i\\
+0&\sin\alpha_i&\cos\alpha_i&d_i\\
+0&0&0&1
+\end{bmatrix}
+$$
+
+理解各块来源：
+
+- 第一、二列来自绕 z 和绕 x 后的轴方向；
+- 右上平移的 $a_i\cos\theta_i,a_i\sin\theta_i$ 是“沿旋转后的 x 方向走 $a_i$”；
+- 第三个平移分量 $d_i$ 沿旧 z 轴；
+- 最后一行保持齐次结构。
+
+### 2R 的 DH 参数表
+
+对平面 2R，所有关节轴都沿 z，连杆沿 x，因此：
+
+| $i$ | $\theta_i$ | $d_i$ | $a_i$ | $\alpha_i$ |
+|---:|---:|---:|---:|---:|
+| 1 | $q_1$ | 0 | $l_1$ | 0 |
+| 2 | $q_2$ | 0 | $l_2$ | 0 |
+
+代入后：
+
+$$
+{}^{0}\mathbf T_2
+=
+{}^{0}\mathbf T_1(q_1)
+{}^{1}\mathbf T_2(q_2)
+$$
+
+其平移列正是：
+
+$$
+\begin{bmatrix}
+x_{\mathrm{ee}}\\y_{\mathrm{ee}}\\0
+\end{bmatrix}
+$$
+
+末端旋转则是 $\mathbf R_z(q_1+q_2)$。
+
+## 07 · 标准 DH、改进 DH 与 POE 不要混成一套
+
+### 改进 DH
+
+改进 DH（modified DH）改变 frame 附着方式和基本变换顺序。它同样正确，但一张标准 DH 参数表不能直接交给 modified DH 实现。
+
+接入库时必须成对确认：
+
+- 使用 standard 还是 modified；
+- 参数表如何编号；
+- 关节零位和正方向；
+- base/tool 是否还有固定变换。
+
+### POE：从关节运动轴直接建模
+
+指数积公式（Product of Exponentials, POE）从“每个关节绕哪根空间轴运动”出发。先记录机械臂零位末端位姿 $\mathbf M$，再记录各关节的螺旋轴 $\boldsymbol{\mathcal S}_i$：
+
+$$
+{}^{\mathrm{base}}\mathbf T_{\mathrm{ee}}(\mathbf q)
+=
+e^{[\boldsymbol{\mathcal S}_1]q_1}
+e^{[\boldsymbol{\mathcal S}_2]q_2}
+\cdots
+e^{[\boldsymbol{\mathcal S}_n]q_n}
+\mathbf M
+$$
+
+这里：
+
+- $\boldsymbol{\mathcal S}_i\in\mathbb R^6$ 描述关节轴的角速度方向和线速度部分；
+- $[\boldsymbol{\mathcal S}_i]\in\mathfrak{se}(3)$ 是对应的 $4\times4$ 生成矩阵；
+- 指数映射 $e^{[\boldsymbol{\mathcal S}_i]q_i}$ 把关节运动变成 $\mathrm{SE}(3)$ 变换；
+- $\mathbf M$ 是所有 $q_i=0$ 时的末端位姿。
+
+门绕铰链旋转就是直观的螺旋轴例子：轴的位置和方向一旦确定，改变角度就确定整扇门的刚体运动。
+
+本课只要求建立 DH 与 POE 的区别：
+
+- DH 强调相邻 frame 之间的四参数关系；
+- POE 强调关节运动轴和零位构型；
+- 两者描述同一个物理机械臂，结果应一致；
+- 下一阶段学习 Jacobian 时，POE 的关节轴表达会更加自然。
+
+## 08 · 工程映射：URDF、JointState 与 tool frame
+
+ROS2/URDF 通常不会直接提供 DH 表，而是使用关节树：
+
+- `<origin xyz="..." rpy="...">`：父 link 到 joint 的固定变换；
+- `<axis xyz="...">`：关节运动轴；
+- `sensor_msgs/JointState`：关节名称、位置、速度和力矩；
+- TF2：发布运行时各 frame 的变换。
+
+正运动学流程通常是：
+
+1. 按关节名对齐 $\mathbf q$，不能只相信数组顺序；
+2. 对每个关节组合固定 origin 与变量运动；
+3. 从 base 沿父子关系累积到目标 link；
+4. 最后乘末端法兰到工具中心点的固定变换 ${}^{\mathrm{flange}}\mathbf T_{\mathrm{tool}}$。
+
+完整链可能是：
+
+$$
+{}^{\mathrm{base}}\mathbf T_{\mathrm{tcp}}
+=
+{}^{\mathrm{base}}\mathbf T_1(q_1)
+\cdots
+{}^{n-1}\mathbf T_{\mathrm{flange}}(q_n)
+{}^{\mathrm{flange}}\mathbf T_{\mathrm{tcp}}
+$$
+
+TCP 是 tool center point，即真正用于抓取或加工的工具中心点。忽略最后的 tool 偏置，会让法兰位置正确但夹爪尖端持续偏移。
+
+### 高频故障诊断
+
+- **零位就错误**：检查固定 origin、DH 参数表、base/tool 固定变换；
+- **只要某关节转动就错误**：检查该关节轴、正方向和角度单位；
+- **下游错、上游对**：从第一个错误 frame 开始检查父子变换；
+- **误差随姿态变化**：常见于乘法顺序、轴表达或关节 offset 错误；
+- **固定偏移**：常见于 TCP、法兰或 base 外参遗漏；
+- **仿真和实机方向相反**：检查 URDF axis、编码器符号和零位定义。
+
+<div class="warning"><strong>不要先调 IK：</strong>如果 FK 与真实/仿真 frame 对不上，逆运动学和控制都会建立在错误模型上。必须先让给定关节角的所有 frame 与 TF/可视化一致。</div>
+
+## 09 · NumPy/PyTorch 动手实验
+
+配套库位于 [`robotics-lib`](https://github.com/zianzhao68/embodied-learning-lab/tree/main/robotics-lib)：
+
+```powershell
+cd D:\vla\robotics-lib
+python -m pip install -e .
+python -m unittest discover -s tests -v
+```
+
+平面 2R：
+
+```python
+import numpy as np
+from embodied_robotics import numpy as kin
+
+points = kin.planar_2r_fk(
+    lengths=[0.4, 0.3],
+    joint_values=np.deg2rad([30.0, 60.0]),
+)
+print(points[-1])  # [0.34641016, 0.5]
+```
+
+标准 DH：
+
+```python
+parameters = np.array([
+    # theta, d,   a, alpha
+    [0.0,   0.0, 0.4, 0.0],
+    [0.0,   0.0, 0.3, 0.0],
+])
+
+T_base_ee = kin.forward_kinematics_dh(
+    parameters,
+    joint_values=np.deg2rad([30.0, 60.0]),
+    joint_types=["R", "R"],
+)
+```
+
+使用 `return_all=True` 可以获得 base、肘部和末端的全部中间位姿，适合画机械臂、定位第一处错误 frame，也为下一课计算 Jacobian 做准备。
+
+<div class="insight"><strong>故障注入：</strong>把二维公式中的 $q_1+q_2$ 临时改成 $q_2$。只用 $q_1=0$ 测试时错误不会暴露；加入 $(30^\circ,60^\circ)$ 后测试立即失败。这说明边界反例必须进入测试集。</div>
+
+## 本课小结
+
+- 关节提供相邻连杆的相对自由度，连杆是刚体；
+- 正运动学把关节空间 $\mathbf q$ 映射到末端任务空间位姿；
+- 上游关节位于变换链前部，因此影响全部下游结构；
+- 平面 2R 的第二连杆绝对方向是 $q_1+q_2$；
+- 2R 末端位置是两根连杆向量的首尾相加；
+- 串联 FK 是相邻 $\mathrm{SE}(3)$ 变换的有序乘积；
+- 标准 DH 顺序为 $R_z(\theta)T_z(d)T_x(a)R_x(\alpha)$；
+- 标准 DH、改进 DH 和 POE 都能建模机械臂，但参数与约定不能混用；
+- 工程排错应输出所有中间 frame，从第一处错误开始定位；
+- FK 未通过仿真/TF 验证前，不应继续调 IK。

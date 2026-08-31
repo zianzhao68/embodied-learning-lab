@@ -122,6 +122,12 @@ rotation-lib/
 ├─ tests/
 ├─ examples/
 └─ artifacts/
+
+robotics-lib/
+├─ src/embodied_robotics/
+│  ├─ numpy.py
+│  └─ torch.py
+└─ tests/
 ```
 
 ## 6. 实施与待确认项

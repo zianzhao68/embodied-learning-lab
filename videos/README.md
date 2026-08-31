@@ -41,6 +41,7 @@ winget install --id Gyan.FFmpeg -e
 | Rodrigues 几何构造 | `02-rodrigues/storyboard.md` | `02-rodrigues/rodrigues_explainer.py` | `RodriguesGeometricExplainer` |
 | 四元数与 SLERP | `02-quaternion-slerp/storyboard.md` | `02-quaternion-slerp/quaternion_slerp.py` | `QuaternionSlerpExplainer` |
 | SE(3) 与变换链 | `03-se3-transform-chain/storyboard.md` | `03-se3-transform-chain/se3_transform_chain.py` | `SE3TransformChainExplainer` |
+| 平面 2R 正运动学 | `04-forward-kinematics/storyboard.md` | `04-forward-kinematics/forward_kinematics.py` | `ForwardKinematicsExplainer` |
 
 ## 渲染流程
 
@@ -66,3 +67,5 @@ python -m manim -qh -s 02-euler-gimbal/euler_gimbal.py EulerGimbalPoster
 - 对应海报位于 `site/public/assets/02-*-poster.png`
 - `site/public/videos/03-se3-transform-chain.mp4`
 - `site/public/assets/03-se3-transform-chain-poster.png`
+- `site/public/videos/04-planar-2r-forward-kinematics.mp4`
+- `site/public/assets/04-planar-2r-forward-kinematics-poster.png`
