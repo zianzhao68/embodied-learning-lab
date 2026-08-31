@@ -471,17 +471,28 @@ $$
 
 <div class="warning"><strong>零角附近：</strong>当 $\alpha\approx0$ 时，旋转轴方向本身不稳定，因为“几乎不旋转”可以由任意轴描述。代码中应使用小角度近似，而不是直接除以一个很小的角度。</div>
 
-## 05 · 四元数：把轴角放到四维单位球面
+## 05 · 四元数：把“绕一根轴转一次”编码成旋转算子
+
+### 先排除一个关键误解：旋转不是平移三次
+
+三维中的一个最终旋转，可以有两种常见描述：
+
+- **欧拉角描述**：依次绕三根指定轴旋转，例如 ZYX 的 yaw、pitch、roll；这些都是旋转，不是平移，而且顺序不同结果通常不同。
+- **轴角描述**：根据欧拉旋转定理，任何一个最终三维旋转都等价于“绕某一根单位轴 $\mathbf{u}$ 一次性旋转角度 $\alpha$”。
+
+四元数编码的是第二种描述中的**同一个最终旋转**。它不是四次运动，四个分量也不是三次平移加一次旋转。若物体还发生位置平移，需要另加平移向量 $\mathbf{t}$；普通单位四元数本身只表示旋转。
+
+<div class="insight"><strong>同一个物理动作：</strong>已知点 $\mathbf p$ 绕轴 $\mathbf u$ 转 $\alpha$，轴角、旋转矩阵和四元数只是三种记账方式；点没有因为改用四元数而多转几次。</div>
+
+### 从已知轴角切入四元数
 
 本课使用标量在前的单位四元数：
 
 $$
-\mathbf{q}=(w,x,y,z)
+\mathbf{q}=(w,x,y,z)=(w,\mathbf v)
 $$
 
-其中 $w$ 是标量部，$(x,y,z)$ 是向量部；这里的三个分量不是空间中的待旋转向量 $\mathbf{p}$。
-
-由轴角 $(\mathbf{u},\alpha)$ 构造：
+$w$ 是一个标量；$\mathbf v=(x,y,z)^{\mathsf T}$ 是四元数的向量部。$\mathbf v$ 不是待旋转点，也不是平移，而是“旋转轴乘一个半角权重”。由已知轴角 $(\mathbf{u},\alpha)$ 直接构造：
 
 <div class="formula-focus">
 
@@ -495,6 +506,72 @@ $$
 $$
 
 </div>
+
+这里没有先绕 x、再绕 y、再绕 z：$\mathbf u$ 整体写入向量部，$\alpha$ 整体写入正弦和余弦权重。由于 $\lVert\mathbf u\rVert_2=1$，该四元数自动满足单位范数。
+
+### 四元数怎样真正作用到点
+
+先把三维点或方向 $\mathbf p$ 暂时嵌入为标量部为零的**纯四元数**：
+
+$$
+\mathbf p_q=(0,\mathbf p)
+$$
+
+再用单位四元数从左右各乘一次：
+
+<div class="formula-focus">
+
+$$
+\mathbf p'_q
+=
+\mathbf q\otimes\mathbf p_q\otimes\mathbf q^{-1}
+$$
+
+</div>
+
+这叫夹心乘法（sandwich product）。它不是把 $\mathbf p$ 当成四维空间中的普通点来旋转；左右夹乘会使结果的标量部重新变成 0，向量部正好是旋转后的三维向量 $\mathbf p'$。
+
+令
+
+$$
+c=\cos\frac{\alpha}{2},
+\qquad
+s=\sin\frac{\alpha}{2},
+\qquad
+\mathbf q=(c,s\mathbf u)
+$$
+
+把 Hamilton 乘积展开，夹心乘法的向量部为：
+
+$$
+\mathbf p'
+=
+(c^2-s^2)\mathbf p
++2s^2(\mathbf u^{\mathsf T}\mathbf p)\mathbf u
++2cs(\mathbf u\times\mathbf p)
+$$
+
+再使用三个半角恒等式：
+
+$$
+c^2-s^2=\cos\alpha,
+\qquad
+2s^2=1-\cos\alpha,
+\qquad
+2cs=\sin\alpha
+$$
+
+立刻得到：
+
+$$
+\mathbf p'
+=
+\cos\alpha\,\mathbf p
++(1-\cos\alpha)(\mathbf u^{\mathsf T}\mathbf p)\mathbf u
++\sin\alpha(\mathbf u\times\mathbf p)
+$$
+
+这正是前面已经理解的 Rodrigues 公式。因此半角不是额外的物理旋转，而是因为 $\mathbf q$ 和 $\mathbf q^{-1}$ 在夹心结构中共同作用；两次半角代数组合成了最终的整角 $\alpha$。
 
 <figure class="diagram-card wide-diagram">
   <img src="../../assets/02-axis-angle-quaternion.svg" alt="轴角通过余弦和正弦半角转换成标量在前的单位四元数，并展示 q 和负 q 表示相同旋转" />
@@ -518,15 +595,7 @@ $$
 
 ### 为什么 q 和 −q 是同一个旋转
 
-将四元数作用到三维向量时，把向量写成纯四元数 $\mathbf{p}_q=(0,\mathbf{p})$：
-
-$$
-\mathbf{p}'_q
-=
-\mathbf{q}\otimes\mathbf{p}_q\otimes\mathbf{q}^{-1}
-$$
-
-如果把 $\mathbf{q}$ 全部取负，左右两个负号会抵消，因此结果不变：
+回到上面的夹心乘法。如果把 $\mathbf{q}$ 全部取负，则 $\mathbf q^{-1}$ 也同时取负，左右两个负号会抵消，因此结果不变：
 
 $$
 \mathbf{q}\sim-\mathbf{q}
