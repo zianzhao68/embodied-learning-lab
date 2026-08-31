@@ -82,16 +82,17 @@ npm run dev
 
 - 当前阶段：阶段 1——机器人基础
 - 当前周：第 3～4 周——机器人运动学
-- 当前知识点：04 关节、连杆、正运动学、标准 DH 与 POE
-- 当前状态：第四课《机械臂正运动学》已发布，包含正文、3 张 SVG、1 个 Manim 动画、12 道测试及 NumPy/PyTorch 运动学库，等待学习者学习
-- 当前课程：01 `coordinate-frames`；02 `rotation-representations`；03 `se3-transform-chains`；04 `forward-kinematics`
+- 当前知识点：05 逆运动学、Jacobian、奇异点与关节限位
+- 当前状态：第五课《逆运动学、Jacobian 与奇异点》已完成本地验收，包含正文、3 张 SVG、1 个 Manim 动画、12 道测试及 NumPy/PyTorch 双后端实现，等待发布与学习者学习
+- 当前课程：01 `coordinate-frames`；02 `rotation-representations`；03 `se3-transform-chains`；04 `forward-kinematics`；05 `inverse-kinematics-jacobian`
 - GitHub 仓库：`https://github.com/zianzhao68/embodied-learning-lab`
 - 公网地址：`https://zianzhao68.github.io/embodied-learning-lab/`
 - 第二课本地路由：`/courses/rotation-representations/`
 - 第三课本地路由：`/courses/se3-transform-chains/`
 - 第四课本地路由：`/courses/forward-kinematics/`
+- 第五课本地路由：`/courses/inverse-kinematics-jacobian/`
 - 网页预览：`site/preview-course-02-desktop.png`、`site/preview-course-02-mobile.png`、`site/preview-course-02-animation-mobile.png`
-- 下一步：学习第四课并完成 12 题测试；运行 `robotics-lib` 的 14 项测试与 q₂ 绝对角故障注入；随后开发逆运动学、Jacobian、奇异点和关节限位
+- 下一步：先补完第四课学习验收；再学习第五课并完成 12 题测试，运行 `robotics-lib` 的 27 项测试与“静默 clip 不可达目标”故障注入；之后进入视觉几何
 - 阻塞项：尚未用真实手机网络记录公网首屏体验；真实机器人尚未到位，不影响当前学习
 
 ## 6. 掌握度看板
@@ -131,7 +132,8 @@ npm run dev
 | 2026-08-31 | 实现 NumPy/PyTorch 旋转工具库 | 新增 `rotation-lib/`：双后端批量转换、复合、SLERP、向量旋转、SO(3) SVD 投影与误差诊断；增加配套 README、课程代码实验和纯 NumPy 3D SVG 可视化 | 18 项性质测试全部通过，覆盖随机 SO(3) 不变量、表示往返、零角/180°/万向节锁、双覆盖、复合顺序、SLERP、后端对齐、PyTorch 梯度和非法输入；与 SciPy 10,000 组随机旋转差分验证最大误差 < 1e-15；Python compileall 通过；Astro 0 错误/0 警告/0 提示；审计 0 漏洞；Rotation CI `33362373503` 与 Pages `33362373452` 均成功，公网代码实验已上线 | 四元数统一 `(w,x,y,z)`；ZYX 奇异处固定 `roll=0`；转换函数不静默修正无效矩阵，显式提供 `project_to_so3` | 学习者运行实验并通过故意注入约定错误理解性质测试 |
 | 2026-08-31 | 根据理解反馈重建轴角到四元数的桥梁 | 明确纯旋转不是平移三次，欧拉角三次轴旋转只是表示方法；从已知轴角构造单位四元数，定义纯四元数与夹心乘法，展开并通过半角恒等式恢复 Rodrigues；课程标准升级 v1.7 | 数学恒等式和同例结果待学习者口头复述确认；Astro 0 错误/0 警告/0 提示，Pages 模式构建 5 页，审计 0 漏洞 | 原课程直接给出半角公式，缺少“为什么它仍是同一个旋转”和“四元数如何作用于点”的中间桥梁 | 用 `(2,0,3)` 绕 `+z` 旋转 `90°` 回答两个检查题 |
 | 2026-08-31 | 开发第三课《SE(3) 与机器人变换链》 | 从刚体距离保持切入，讲解点/方向齐次语义、SE(3) 群、分块复合、解析逆、相对位姿、主动/被动语义与眼在手上抓取链；新增 3 张 SVG、26.2 秒 1080p Manim 动画、12 道测试；`rotation-lib` 增加 NumPy/PyTorch SE(3) 后端 | 31 项 Python 性质测试通过；第三课测试自动验收 12/12；动画 smoke test、关键帧与海报检查通过；MP4 为 1920×1080、30fps、H.264/yuv420p、1.6 MB；Astro 检查 0 错误/0 警告/0 提示，Pages 模式构建 6 页，审计 0 漏洞；390px 页面无横向溢出；视频实际播放与本地断链检查通过；Rotation CI `33371808681` 与 Pages `33371808685` 成功；公网课程和 4 个图像资源 HTTP 200，视频 Range HTTP 206 | 第一课只建立齐次变换入门，本课避免重复，重点深化“复合平移先改写坐标系”、相对位姿及时序化机器人链路 | 学习者完成课程和故障注入实验 |
-| 2026-08-31 | 开发第四课《机械臂正运动学》 | 从关节/连杆和一根连杆切入，推导平面 2R 的相对角与向量和，升级为 SE(3) 串联链；讲解标准 DH frame 分配、四参数矩阵、standard/modified 差异、POE 直觉与 URDF/TCP 工程映射；新增 3 张 SVG、23 秒 1080p Manim 动画、12 道测试和 `robotics-lib` NumPy/PyTorch 双后端 | 14 项运动学测试通过，覆盖 2R 手算、相对角、长度保持、DH/几何一致、转动/移动关节、批量维度、后端对齐和自动微分；课程测试自动验收 12/12；动画 smoke test、关键帧与海报通过；MP4 1920×1080、30fps、H.264/yuv420p、1.4 MB；Astro 0 错误/0 警告/0 提示，Pages 模式构建 7 页，审计 0 漏洞；390px 页面无横向溢出，视频实际播放与本地断链检查通过；Robotics CI `33376699028` 与 Pages `33376699081` 成功；公网课程与 4 个图像资源 HTTP 200，视频 Range HTTP 206 | 本课聚焦 FK 建模与可验证实现；POE 只建立轴与零位直觉，Jacobian/IK 留到下一课逐步展开 | 完成 Pages 构建、CI、部署和公网资源验收 |
+| 2026-08-31 | 开发第四课《机械臂正运动学》 | 从关节/连杆和一根连杆切入，推导平面 2R 的相对角与向量和，升级为 SE(3) 串联链；讲解标准 DH frame 分配、四参数矩阵、standard/modified 差异、POE 直觉与 URDF/TCP 工程映射；新增 3 张 SVG、23 秒 1080p Manim 动画、12 道测试和 `robotics-lib` NumPy/PyTorch 双后端 | 14 项运动学测试通过，覆盖 2R 手算、相对角、长度保持、DH/几何一致、转动/移动关节、批量维度、后端对齐和自动微分；课程测试自动验收 12/12；动画 smoke test、关键帧与海报通过；MP4 1920×1080、30fps、H.264/yuv420p、1.4 MB；Astro 0 错误/0 警告/0 提示，Pages 模式构建 7 页，审计 0 漏洞；390px 页面无横向溢出，视频实际播放与本地断链检查通过；Robotics CI `33376699028` 与 Pages `33376699081` 成功；公网课程与 4 个图像资源 HTTP 200，视频 Range HTTP 206 | 本课聚焦 FK 建模与可验证实现；POE 只建立轴与零位直觉，Jacobian/IK 留到下一课逐步展开 | 学习者完成课程、测试和故障注入实验 |
+| 2026-08-31 | 开发第五课《逆运动学、Jacobian 与奇异点》 | 从抓杯子的多解直觉切入，推导 2R 工作空间、余弦定理解析 IK、Jacobian 列向量、奇异触发机制、伪逆/DLS、关节限位与工程诊断；新增 3 张 SVG、23 秒 1080p Manim 动画、12 道测试，并扩展 `robotics-lib` 双后端 | 27 项运动学测试通过；解析 IK 两支回代、内外工作空间、Jacobian 有限差分/自动微分、奇异触发与反例、DLS 收敛/阻尼/限位均通过；课程自动验收 12/12；动画 smoke test、关键帧和海报通过；MP4 1920×1080、30fps、H.264/yuv420p、1.7 MB；Astro 0 错误/0 警告/0 提示，Pages 模式构建 8 页，审计 0 漏洞；390px 无横向溢出，图片、视频播放和本地断链检查通过 | 明确奇异不是完全锁死；不可达目标返回 NaN 候选与 `reachable=False`，不静默伪装成边界解 | 完成 CI、部署与公网资源验收 |
 
 ## 8. 会话恢复协议
 

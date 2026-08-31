@@ -1,0 +1,577 @@
+---
+title: 逆运动学、Jacobian 与奇异点
+slug: inverse-kinematics-jacobian
+order: 5
+phase: 机器人基础
+description: 从平面 2R 的肘上/肘下解出发，理解可达性、Jacobian 速度映射、奇异机制、阻尼迭代与关节限位。
+duration: 160–190 分钟
+level: 基础
+tags:
+  - 逆运动学
+  - Jacobian
+  - 奇异点
+published: true
+---
+
+import CourseVideo from '../../components/CourseVideo.astro'
+
+# 逆运动学、Jacobian 与奇异点
+
+<div class="lead">正运动学告诉我们“给定关节角，夹爪在哪里”；抓取任务却先给出杯子的位置，再要求机械臂自己找到关节角。同一个杯子可能有肘上、肘下两种姿态，也可能太远、太近或被关节限位挡住。</div>
+
+## 本课目标
+
+完成本课后，你应该能够：
+
+- 区分无解、单解、多解与冗余机械臂的无限多解；
+- 推导平面 2R 的工作空间和肘上/肘下解析解；
+- 从正运动学偏导构造位置 Jacobian；
+- 用 Jacobian 每一列解释单个关节造成的末端瞬时速度；
+- 给出 2R 奇异点的触发条件、几何机制、数值例子和反例；
+- 解释伪逆与阻尼最小二乘迭代的作用和局限；
+- 将可达性、关节限位、连续性和碰撞纳入选解流程；
+- 使用 NumPy/PyTorch 验证解析解、Jacobian 与迭代 IK。
+
+## 先备知识
+
+需要完成第四课，能够写出平面 2R 正运动学：
+
+$$
+\begin{aligned}
+x&=l_1\cos q_1+l_2\cos(q_1+q_2)\\
+y&=l_1\sin q_1+l_2\sin(q_1+q_2)
+\end{aligned}
+$$
+
+> **本课约定**：$\mathbf q=(q_1,q_2)^{\mathsf T}$，逆时针为正；$q_2$ 是第二连杆相对第一连杆的角度。目标位置 $\mathbf p_{\mathrm d}=(x_{\mathrm d},y_{\mathrm d})^{\mathsf T}$，长度单位为米，角度单位为弧度。
+
+## 01 · 逆运动学不是简单地把 FK 公式倒过来
+
+逆运动学（inverse kinematics, IK）要解：
+
+<div class="formula-focus">
+
+$$
+\text{给定 }{}^{\mathrm{base}}\mathbf T_{\mathrm{target}},
+\qquad
+\text{寻找 }\mathbf q
+\text{ 使 }
+{}^{\mathrm{base}}\mathbf T_{\mathrm{ee}}(\mathbf q)
+={}^{\mathrm{base}}\mathbf T_{\mathrm{target}}
+$$
+
+</div>
+
+与 FK 相比，IK 可能出现：
+
+- **无解**：目标超出工作空间，或被关节限位/碰撞约束排除；
+- **单解**：通常出现在工作空间边界或附加约束后；
+- **有限多解**：平面 2R 的普通可达点通常有肘上、肘下两支；
+- **无限多解**：机器人自由度多于任务约束时，可以在完成任务的同时调整肘部等内部姿态。
+
+因此 IK 不只需要“算一个答案”，还需要判断可达、枚举或搜索候选、过滤约束，并从剩余解中选择连续且安全的一支。
+
+## 02 · 先做可达性判断
+
+末端到 base 原点的距离：
+
+$$
+r=\sqrt{x_{\mathrm d}^2+y_{\mathrm d}^2}
+$$
+
+两根定长连杆能够组成三角形，当且仅当：
+
+<div class="formula-focus">
+
+$$
+|l_1-l_2|
+\le r\le
+l_1+l_2
+$$
+
+</div>
+
+- $r>l_1+l_2$：目标太远，两根连杆完全伸直仍够不到；
+- $r<|l_1-l_2|$：目标太近，长连杆折回来后仍越过目标；
+- 严格位于圆环内部：通常有两组位置 IK 解；
+- 位于边界：两支解合并，机械臂同时处于奇异构型。
+
+<figure class="diagram-card wide-diagram">
+  <img src="../../assets/05-ik-branches-reachability.svg" alt="平面二连杆机械臂的圆环工作空间、太远和太近的不可达目标，以及同一可达目标的肘上肘下两组解" />
+  <figcaption>先看左侧圆环判断几何可达，再看右侧同一目标的两种构型。数学可达之后仍需检查关节限位、碰撞和路径连续性。</figcaption>
+</figure>
+
+<div class="warning"><strong>不要静默裁剪：</strong>代码若把超出 $[-1,1]$ 的余弦值直接 clip 后继续返回关节角，会把不可达目标伪装成边界解。应同时返回明确的 `reachable` 标志。</div>
+
+## 03 · 用余弦定理求 q₂
+
+base、肘部和目标形成三角形，三条边长为 $l_1,l_2,r$。根据余弦定理：
+
+$$
+r^2
+=l_1^2+l_2^2+2l_1l_2\cos q_2
+$$
+
+因此：
+
+<div class="formula-focus">
+
+$$
+c_2
+\equiv
+\cos q_2
+=
+\frac{x_{\mathrm d}^2+y_{\mathrm d}^2-l_1^2-l_2^2}{2l_1l_2}
+$$
+
+</div>
+
+这里 $c_2$ 只是为了书写简洁引入的辅助标量，不是新的关节变量。
+
+由于同一个余弦对应正负两个角：
+
+$$
+s_2=\pm\sqrt{1-c_2^2}
+$$
+
+使用 `atan2` 保留象限：
+
+$$
+q_2
+=
+\operatorname{atan2}(s_2,c_2)
+$$
+
+正负号产生两条分支。按照本课角度约定，$q_2>0$ 和 $q_2<0$ 分别对应两种不同肘部位置。
+
+### 为什么不用 arccos 后手动加负号
+
+$\arccos c_2$ 只返回 $[0,\pi]$。虽然可以再构造负分支，但 `atan2(s_2,c_2)` 同时保留正弦和余弦，更清楚地表达象限，并与旋转计算的通用习惯一致。
+
+## 04 · 已知 q₂ 后求 q₁
+
+目标方向角：
+
+$$
+\beta
+=
+\operatorname{atan2}(y_{\mathrm d},x_{\mathrm d})
+$$
+
+第二连杆使“肩部到目标”的合成向量相对第一连杆偏转：
+
+$$
+\gamma
+=
+\operatorname{atan2}
+\left(
+ l_2\sin q_2,
+ l_1+l_2\cos q_2
+\right)
+$$
+
+所以：
+
+<div class="formula-focus">
+
+$$
+q_1
+=
+\beta-\gamma
+=
+\operatorname{atan2}(y_{\mathrm d},x_{\mathrm d})
+-
+\operatorname{atan2}
+\left(l_2\sin q_2,l_1+l_2\cos q_2\right)
+$$
+
+</div>
+
+### 延续上一课的数值例子
+
+$$
+l_1=0.4,
+\quad l_2=0.3,
+\quad
+\mathbf p_{\mathrm d}
+=(0.3464,0.5000)^{\mathsf T}\ \mathrm m
+$$
+
+计算得到：
+
+$$
+c_2=\cos60^\circ=0.5
+$$
+
+两条分支约为：
+
+$$
+\mathbf q^{(1)}=(30.0^\circ,60.0^\circ)^{\mathsf T}
+$$
+
+$$
+\mathbf q^{(2)}=(80.6^\circ,-60.0^\circ)^{\mathsf T}
+$$
+
+把两组角分别送回 FK，都得到同一个目标位置。逆运动学验收不能只检查关节角是否等于某个参考答案，而应检查：
+
+$$
+\lVert f(\mathbf q)-\mathbf p_{\mathrm d}\rVert_2<\varepsilon
+$$
+
+<CourseVideo
+  title="动画详解：多解、Jacobian 与奇异方向"
+  duration="23 秒"
+  src="../../videos/05-ik-jacobian-singularity.mp4"
+  poster="../../assets/05-ik-jacobian-singularity-poster.png"
+  caption="让两种肘部构型到达同一目标，再把关节微小转动变成 Jacobian 列向量，最后观察连杆共线时速度方向怎样从二维退化为一维。"
+/>
+
+## 05 · Jacobian：当前位置附近的速度翻译器
+
+正运动学给出位置：
+
+$$
+\mathbf p=f(\mathbf q)
+$$
+
+对时间求导：
+
+<div class="formula-focus">
+
+$$
+\dot{\mathbf p}
+=
+\frac{\partial f}{\partial\mathbf q}
+\dot{\mathbf q}
+=
+\mathbf J(\mathbf q)\dot{\mathbf q}
+$$
+
+</div>
+
+其中：
+
+- $\mathbf J\in\mathbb R^{2\times2}$：平面位置 Jacobian，单位 m/rad；
+- $\dot{\mathbf q}\in\mathbb R^2$：关节角速度，单位 rad/s；
+- $\dot{\mathbf p}\in\mathbb R^2$：末端线速度，单位 m/s。
+
+对 2R FK 分别求偏导：
+
+<div class="formula-focus">
+
+$$
+\mathbf J(\mathbf q)
+=
+\begin{bmatrix}
+-l_1\sin q_1-l_2\sin(q_1+q_2)&-l_2\sin(q_1+q_2)\\
+l_1\cos q_1+l_2\cos(q_1+q_2)&l_2\cos(q_1+q_2)
+\end{bmatrix}
+$$
+
+</div>
+
+### 每一列的几何含义
+
+写成列组合：
+
+$$
+\dot{\mathbf p}
+=
+\mathbf J_{:,1}\dot q_1
++
+\mathbf J_{:,2}\dot q_2
+$$
+
+- 第一列：只让关节 1 以 1 rad/s 转动、关节 2 不动时的末端速度；
+- 第二列：只让关节 2 以 1 rad/s 转动、关节 1 不动时的末端速度。
+
+<figure class="diagram-card wide-diagram">
+  <img src="../../assets/05-jacobian-columns.svg" alt="平面二连杆机械臂的两个 Jacobian 列向量，分别表示只转动关节一和关节二时的末端切向速度" />
+  <figcaption>转动关节产生的瞬时速度垂直于“该关节到末端”的半径。关节 1 到末端半径更长，所以第一列包含两根连杆的影响。</figcaption>
+</figure>
+
+Jacobian 不是另一套 FK。FK 给当前位置，Jacobian 只描述该位置附近的小变化：
+
+$$
+\Delta\mathbf p
+\approx
+\mathbf J(\mathbf q)\Delta\mathbf q
+$$
+
+步长过大时，局部线性近似会产生明显误差，因此迭代 IK 要反复重新计算 Jacobian。
+
+### 三维机械臂中的 Jacobian
+
+对于同时控制位置和姿态的机械臂，常用几何 Jacobian：
+
+$$
+\begin{bmatrix}
+\mathbf v\\\boldsymbol\omega
+\end{bmatrix}
+=
+\mathbf J(\mathbf q)\dot{\mathbf q}
+$$
+
+上三行描述末端线速度 $\mathbf v$，下三行描述角速度 $\boldsymbol\omega$。若机械臂有 $n$ 个关节，则 $\mathbf J\in\mathbb R^{6\times n}$。
+
+## 06 · 奇异点怎样产生
+
+对 2R 的 $2\times2$ Jacobian 求行列式：
+
+<div class="formula-focus">
+
+$$
+\det\mathbf J
+=l_1l_2\sin q_2
+$$
+
+</div>
+
+因此奇异触发条件是：
+
+$$
+q_2=0
+\quad\text{或}\quad
+q_2=\pi
+\pmod{2\pi}
+$$
+
+即两根连杆完全伸直或完全折叠，共线。
+
+### 几何机制
+
+Jacobian 两列分别是两个关节产生的末端切向速度。连杆共线时：
+
+- 关节 1 和关节 2 产生的瞬时速度都垂直于同一条直线；
+- 两列变成共线向量；
+- Jacobian 秩从 2 降为 1；
+- 末端此刻无法产生沿连杆径向的瞬时速度。
+
+这不是机械臂物理锁死。它仍然能够沿切向移动，离开奇异构型后又可恢复二维速度能力。
+
+<figure class="diagram-card wide-diagram">
+  <img src="../../assets/05-singularity-and-dls.svg" alt="平面二连杆在完全伸直时 Jacobian 列共线而失去径向瞬时速度，并与弯曲九十度的非奇异反例及阻尼最小二乘公式对比" />
+  <figcaption>左侧是触发条件和丢失的径向速度；右侧 $q_2=90^\circ$ 是不触发反例，两列不共线，速度椭圆有面积。</figcaption>
+</figure>
+
+### 数值触发例子
+
+取 $l_1=0.4$、$l_2=0.3$ m，$q_1=0,q_2=0$：
+
+$$
+\mathbf J
+=
+\begin{bmatrix}
+0&0\\
+0.7&0.3
+\end{bmatrix}
+$$
+
+无论怎样选择 $\dot q_1,\dot q_2$，末端 x 速度都只能是 0；但 y 速度仍可非零。
+
+### 不触发反例
+
+若 $q_1=0,q_2=90^\circ$：
+
+$$
+\mathbf J
+=
+\begin{bmatrix}
+-0.3&-0.3\\
+0.4&0
+\end{bmatrix},
+\qquad
+\det\mathbf J=0.12\ne0
+$$
+
+两个独立关节速度可以组合出任意二维小速度。
+
+<div class="warning"><strong>接近奇异也要处理：</strong>工程中不能只判断 `det(J)==0`。浮点数很少精确等于零，而且高维 Jacobian 不一定是方阵。更通用的指标是最小奇异值 $\sigma_{\min}$ 或条件数。</div>
+
+## 07 · 迭代 IK：让误差一步步缩小
+
+对于没有方便解析解的机械臂，常从初值 $\mathbf q_k$ 开始迭代。
+
+当前位置和误差：
+
+$$
+\mathbf p_k=f(\mathbf q_k),
+\qquad
+\mathbf e_k=\mathbf p_{\mathrm d}-\mathbf p_k
+$$
+
+局部近似：
+
+$$
+\mathbf e_k
+\approx
+\mathbf J(\mathbf q_k)\Delta\mathbf q_k
+$$
+
+### 伪逆更新
+
+$$
+\Delta\mathbf q_k
+=
+\mathbf J^{\dagger}\mathbf e_k
+$$
+
+$\mathbf J^{\dagger}$ 是 Moore–Penrose 伪逆。它能处理非方阵，并在多解时给出最小范数局部步长。但接近奇异点时，小奇异值取倒数会造成巨大关节更新。
+
+### 阻尼最小二乘
+
+阻尼最小二乘（damped least squares, DLS），也称 Levenberg–Marquardt 风格更新：
+
+<div class="formula-focus">
+
+$$
+\Delta\mathbf q_k
+=
+\mathbf J^{\mathsf T}
+\left(
+\mathbf J\mathbf J^{\mathsf T}
++\lambda^2\mathbf I
+\right)^{-1}
+\mathbf e_k
+$$
+
+</div>
+
+然后：
+
+$$
+\mathbf q_{k+1}
+=
+\mathbf q_k+\eta\Delta\mathbf q_k
+$$
+
+- $\lambda>0$：阻尼，越大越稳定但收敛更慢；
+- $\eta\in(0,1]$：步长；
+- 每一步都必须重新计算 FK、误差和 Jacobian。
+
+阻尼不会让不可达目标变得可达，也不会自动解决碰撞和关节限位；它只是抑制奇异附近的数值爆炸。
+
+### 停止条件
+
+至少同时设置：
+
+- 任务误差 $\lVert\mathbf e_k\rVert<\varepsilon$；
+- 最大迭代次数；
+- 关节更新过小或进展停滞检测；
+- NaN/Inf 检查；
+- 关节限位与碰撞检查。
+
+<div class="insight"><strong>不要只返回 q：</strong>求解器应同时返回 `converged`、最终误差、迭代次数和失败原因。达到最大迭代次数不是成功。</div>
+
+## 08 · 关节限位、多解与连续性
+
+即使解析 IK 返回两支数学解，也可能只有一支可执行。
+
+### 关节限位
+
+每个关节满足：
+
+$$
+q_{i,\min}\le q_i\le q_{i,\max}
+$$
+
+对解析解，应先生成所有分支，再逐一过滤。对迭代解，简单 clamp 虽能保证数值不越界，却可能把求解器卡在边界；更完整的方法会使用带约束优化或在零空间中主动远离限位。
+
+### 连续选解
+
+控制循环不应每帧随意在肘上、肘下间切换。常用选择代价：
+
+$$
+\operatorname*{argmin}_{\mathbf q\in\mathcal Q_{\mathrm{valid}}}
+\lVert\operatorname{wrap}(\mathbf q-\mathbf q_{\mathrm{previous}})\rVert_{\mathbf W}^2
+$$
+
+即在合法候选中选择最接近上一帧关节角的一支，并正确处理角度 $2\pi$ 周期。
+
+### 冗余机械臂
+
+若 $n>6$，完成六维末端任务后通常还有零空间自由度。可以在不改变一阶末端速度的情况下：
+
+- 远离关节限位；
+- 避开障碍；
+- 提高可操作度；
+- 保持更自然的肘部姿态。
+
+本课先建立概念，后续控制与规划课程再展开零空间投影。
+
+## 09 · 工程诊断流程
+
+面对 IK 失败，建议按顺序排查：
+
+1. **先验证 FK**：给定 $\mathbf q$，所有中间 frame 是否与 TF/仿真一致；
+2. **检查目标 frame**：目标是否已转换到 IK 求解器要求的 base/tool frame；
+3. **检查可达性**：位置、姿态和 TCP 偏置是否超出工作空间；
+4. **检查约束**：关节限位、自碰撞、环境碰撞；
+5. **检查奇异指标**：$\sigma_{\min}$、条件数或 manipulability；
+6. **检查初值**：迭代解高度依赖初始构型；
+7. **检查尺度**：位置误差单位 m，姿态误差单位 rad，权重是否平衡；
+8. **记录失败原因**：不可达、限位、碰撞、奇异、超时或数值异常不能合并为一个 `False`。
+
+姿态任务还需要使用相对旋转误差，而不是直接相减欧拉角。完整六维误差通常包含三维平移和三维旋转向量，并设置合理权重。
+
+## 10 · NumPy/PyTorch 动手实验
+
+`robotics-lib` 已新增：
+
+- `planar_2r_ik`：解析肘上/肘下解与可达标志；
+- `planar_2r_jacobian`：位置 Jacobian；
+- `damped_least_squares_step`：单步阻尼更新；
+- `planar_2r_ik_dls`：带停止条件和可选关节限位的迭代求解；
+- `within_joint_limits`：批量限位检查。
+
+```python
+import numpy as np
+from embodied_robotics import numpy as kin
+
+lengths = np.array([0.4, 0.3])
+target = np.array([0.34641016, 0.5])
+
+solutions, reachable = kin.planar_2r_ik(lengths, target)
+for q in solutions:
+    reconstructed = kin.planar_2r_fk(lengths, q)[-1]
+    print(np.rad2deg(q), reconstructed)
+```
+
+迭代 DLS：
+
+```python
+q, converged, error = kin.planar_2r_ik_dls(
+    lengths,
+    target=[0.35, 0.25],
+    initial=[0.2, 0.5],
+    damping=0.03,
+    step_size=0.8,
+    max_iterations=200,
+    tolerance=1e-8,
+)
+```
+
+运行 27 项测试：
+
+```powershell
+cd D:\vla\robotics-lib
+python -m unittest discover -s tests -v
+```
+
+测试覆盖解析解回代、内外工作空间、Jacobian 有限差分、自动微分、奇异触发/反例、阻尼稳定性、批量迭代和限位失败。
+
+<div class="insight"><strong>故障注入：</strong>把不可达目标的 $c_2$ 静默 clip 到 $[-1,1]$ 并删除 `reachable` 标志，观察求解器怎样错误地报告边界姿态。恢复后再测试太远和太近两类目标。</div>
+
+## 本课小结
+
+- IK 可能无解、单解、多解或无限多解；
+- 平面 2R 的位置工作空间满足 $|l_1-l_2|\le r\le l_1+l_2$；
+- 余弦定理先求 $q_2$，正负正弦产生肘部两支；
+- IK 验收应把解送回 FK，而不是只比较关节角；
+- Jacobian 把关节速度映射为末端瞬时速度，每列对应一个关节的独立贡献；
+- 2R 在 $q_2=0$ 或 $\pi$ 时连杆共线，Jacobian 秩下降并失去径向瞬时速度；
+- 奇异不等于物理锁死，非触发反例是 $q_2=90^\circ$；
+- DLS 抑制奇异附近的数值爆炸，但不创造可达性；
+- 关节限位、碰撞、连续性和初值决定数学解能否实际执行；
+- 求解器必须返回收敛状态、最终误差和明确失败原因。

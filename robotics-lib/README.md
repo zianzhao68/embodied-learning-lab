@@ -1,6 +1,6 @@
 # Embodied Robotics：NumPy / PyTorch 运动学工具库
 
-第四课《机械臂正运动学》的工程实现。NumPy 与 PyTorch 后端采用相同 API，覆盖平面 2R 机械臂、标准 DH 单节变换和串联机械臂正运动学。
+第四、五课的工程实现。NumPy 与 PyTorch 后端采用相同 API，覆盖平面 2R、标准 DH 正运动学、解析逆运动学、Jacobian 与阻尼最小二乘迭代。
 
 ## 固定约定
 
@@ -68,6 +68,11 @@ T_base_ee = kin.forward_kinematics_dh(
 - `compose_chain(transforms, return_all=False)`
 - `forward_kinematics_dh(parameters, joint_values, joint_types, return_all=False)`
 - `planar_2r_fk(lengths, joint_values)`
+- `planar_2r_jacobian(lengths, joint_values)`
+- `planar_2r_ik(lengths, target)`
+- `damped_least_squares_step(jacobian, error, damping)`
+- `planar_2r_ik_dls(...)`
+- `within_joint_limits(...)`
 
 所有函数支持前导批量维度。PyTorch 后端继承 dtype/device，并可对关节变量进行自动微分。
 
@@ -84,6 +89,12 @@ T_base_ee = kin.forward_kinematics_dh(
 - 串联复合顺序正确；
 - NumPy/PyTorch 后端一致；
 - PyTorch 自动微分与有限差分一致；
-- 输入形状和关节类型错误被显式拒绝。
+- 输入形状和关节类型错误被显式拒绝；
+- 解析 IK 的肘上/肘下两支都能重建目标；
+- 工作空间内外边界被显式判断；
+- Jacobian 与有限差分/自动微分一致；
+- 奇异触发条件 `det(J)=l1*l2*sin(q2)` 正确；
+- 阻尼步在奇异附近保持有限；
+- DLS 对可达目标收敛，对不可达或受限目标不谎报成功。
 
 随机测试使用固定种子，便于复现。

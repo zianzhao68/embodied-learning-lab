@@ -87,3 +87,110 @@ def planar_2r_fk(lengths: Tensor, joint_values: Tensor) -> Tensor:
     elbow = torch.stack((l1 * torch.cos(q1), l1 * torch.sin(q1)), dim=-1)
     end = elbow + torch.stack((l2 * torch.cos(q1 + q2), l2 * torch.sin(q1 + q2)), dim=-1)
     return torch.stack((base, elbow, end), dim=-2)
+
+
+def planar_2r_jacobian(lengths: Tensor, joint_values: Tensor) -> Tensor:
+    lengths = _float_tensor(lengths)
+    q = _float_tensor(joint_values).to(device=lengths.device, dtype=lengths.dtype)
+    if lengths.shape[-1:] != (2,) or q.shape[-1:] != (2,):
+        raise ValueError("lengths and joint_values must both end in dimension 2")
+    batch = torch.broadcast_shapes(lengths.shape[:-1], q.shape[:-1])
+    lengths = torch.broadcast_to(lengths, batch + (2,))
+    q = torch.broadcast_to(q, batch + (2,))
+    l1, l2 = lengths.unbind(dim=-1)
+    q1, q2 = q.unbind(dim=-1)
+    s1, c1 = torch.sin(q1), torch.cos(q1)
+    s12, c12 = torch.sin(q1 + q2), torch.cos(q1 + q2)
+    return torch.stack((
+        -l1 * s1 - l2 * s12, -l2 * s12,
+        l1 * c1 + l2 * c12, l2 * c12,
+    ), dim=-1).reshape(batch + (2, 2))
+
+
+def planar_2r_ik(
+    lengths: Tensor, target: Tensor, reachability_eps: float = 1e-9
+) -> tuple[Tensor, Tensor]:
+    lengths = _float_tensor(lengths)
+    target = _float_tensor(target).to(device=lengths.device, dtype=lengths.dtype)
+    if lengths.shape[-1:] != (2,) or target.shape[-1:] != (2,):
+        raise ValueError("lengths and target must both end in dimension 2")
+    batch = torch.broadcast_shapes(lengths.shape[:-1], target.shape[:-1])
+    lengths = torch.broadcast_to(lengths, batch + (2,))
+    target = torch.broadcast_to(target, batch + (2,))
+    if torch.any(lengths <= 0).item():
+        raise ValueError("link lengths must be positive")
+    l1, l2 = lengths.unbind(dim=-1)
+    x, y = target.unbind(dim=-1)
+    c2_raw = (x * x + y * y - l1 * l1 - l2 * l2) / (2.0 * l1 * l2)
+    reachable = (c2_raw >= -1.0 - reachability_eps) & (c2_raw <= 1.0 + reachability_eps)
+    c2 = c2_raw.clamp(-1.0, 1.0)
+    s2 = torch.sqrt((1.0 - c2 * c2).clamp_min(0.0))
+    q2_positive = torch.atan2(s2, c2)
+    q2_negative = torch.atan2(-s2, c2)
+
+    def q1_for(q2: Tensor) -> Tensor:
+        return torch.atan2(y, x) - torch.atan2(l2 * torch.sin(q2), l1 + l2 * torch.cos(q2))
+
+    solutions = torch.stack((
+        torch.stack((q1_for(q2_positive), q2_positive), dim=-1),
+        torch.stack((q1_for(q2_negative), q2_negative), dim=-1),
+    ), dim=-2)
+    return torch.where(reachable[..., None, None], solutions, torch.full_like(solutions, torch.nan)), reachable
+
+
+def damped_least_squares_step(jacobian: Tensor, error: Tensor, damping: float = 0.05) -> Tensor:
+    j = _float_tensor(jacobian)
+    e = _float_tensor(error).to(device=j.device, dtype=j.dtype)
+    if j.ndim < 2 or e.ndim == 0 or j.shape[-2] != e.shape[-1]:
+        raise ValueError("jacobian must be (..., M, N) and error (..., M)")
+    identity = torch.eye(j.shape[-2], dtype=j.dtype, device=j.device)
+    system = j @ j.transpose(-1, -2) + damping * damping * identity
+    solved = torch.linalg.solve(system, e.unsqueeze(-1))
+    return (j.transpose(-1, -2) @ solved).squeeze(-1)
+
+
+def within_joint_limits(joint_values: Tensor, lower: Tensor, upper: Tensor) -> Tensor:
+    q = _float_tensor(joint_values)
+    low = _float_tensor(lower).to(device=q.device, dtype=q.dtype)
+    high = _float_tensor(upper).to(device=q.device, dtype=q.dtype)
+    q, low, high = torch.broadcast_tensors(q, low, high)
+    if q.ndim == 0:
+        raise ValueError("joint values must have a joint dimension")
+    return torch.all((q >= low) & (q <= high), dim=-1)
+
+
+def planar_2r_ik_dls(
+    lengths: Tensor,
+    target: Tensor,
+    initial: Tensor,
+    *,
+    damping: float = 0.05,
+    step_size: float = 1.0,
+    max_iterations: int = 100,
+    tolerance: float = 1e-6,
+    joint_limits: tuple[Tensor, Tensor] | None = None,
+) -> tuple[Tensor, Tensor, Tensor]:
+    lengths = _float_tensor(lengths)
+    target = _float_tensor(target).to(device=lengths.device, dtype=lengths.dtype)
+    q = _float_tensor(initial).to(device=lengths.device, dtype=lengths.dtype)
+    if lengths.shape[-1:] != (2,) or target.shape[-1:] != (2,) or q.shape[-1:] != (2,):
+        raise ValueError("lengths, target and initial must all end in dimension 2")
+    batch = torch.broadcast_shapes(lengths.shape[:-1], target.shape[:-1], q.shape[:-1])
+    lengths = torch.broadcast_to(lengths, batch + (2,))
+    target = torch.broadcast_to(target, batch + (2,))
+    q = torch.broadcast_to(q, batch + (2,)).clone()
+    if joint_limits is not None:
+        lower = torch.broadcast_to(_float_tensor(joint_limits[0]).to(q), batch + (2,))
+        upper = torch.broadcast_to(_float_tensor(joint_limits[1]).to(q), batch + (2,))
+        if torch.any(lower > upper).item():
+            raise ValueError("joint lower limits must not exceed upper limits")
+    for _ in range(max_iterations):
+        position = planar_2r_fk(lengths, q)[..., -1, :]
+        error = target - position
+        if torch.all(torch.linalg.vector_norm(error, dim=-1) <= tolerance).item():
+            break
+        q = q + step_size * damped_least_squares_step(planar_2r_jacobian(lengths, q), error, damping)
+        if joint_limits is not None:
+            q = torch.maximum(torch.minimum(q, upper), lower)
+    final_error = torch.linalg.vector_norm(target - planar_2r_fk(lengths, q)[..., -1, :], dim=-1)
+    return q, final_error <= tolerance, final_error

@@ -117,3 +117,117 @@ def planar_2r_fk(lengths: ArrayLike, joint_values: ArrayLike) -> NDArray[np.floa
     elbow = np.stack((l1 * np.cos(q1), l1 * np.sin(q1)), axis=-1)
     end = elbow + np.stack((l2 * np.cos(q1 + q2), l2 * np.sin(q1 + q2)), axis=-1)
     return np.stack((base, elbow, end), axis=-2)
+
+
+def planar_2r_jacobian(lengths: ArrayLike, joint_values: ArrayLike) -> NDArray[np.floating]:
+    """Return the 2x2 position Jacobian ``dp/dq`` for a planar 2R arm."""
+    lengths = _float_array(lengths)
+    q = _float_array(joint_values)
+    if lengths.shape[-1:] != (2,) or q.shape[-1:] != (2,):
+        raise ValueError("lengths and joint_values must both end in dimension 2")
+    batch = np.broadcast_shapes(lengths.shape[:-1], q.shape[:-1])
+    lengths = np.broadcast_to(lengths, batch + (2,))
+    q = np.broadcast_to(q, batch + (2,))
+    l1, l2 = lengths[..., 0], lengths[..., 1]
+    q1, q2 = q[..., 0], q[..., 1]
+    s1, c1 = np.sin(q1), np.cos(q1)
+    s12, c12 = np.sin(q1 + q2), np.cos(q1 + q2)
+    return np.stack((
+        -l1 * s1 - l2 * s12, -l2 * s12,
+        l1 * c1 + l2 * c12, l2 * c12,
+    ), axis=-1).reshape(batch + (2, 2))
+
+
+def planar_2r_ik(
+    lengths: ArrayLike, target: ArrayLike, reachability_eps: float = 1e-9
+) -> tuple[NDArray[np.floating], NDArray[np.bool_]]:
+    """Analytic elbow-up/down IK for planar position targets.
+
+    Return ``(solutions, reachable)`` where solutions has shape ``(...,2,2)``:
+    branch 0 has non-negative q2 and branch 1 non-positive q2. Unreachable
+    targets receive NaN solutions instead of a silently clipped answer.
+    """
+    lengths = _float_array(lengths)
+    target = _float_array(target)
+    if lengths.shape[-1:] != (2,) or target.shape[-1:] != (2,):
+        raise ValueError("lengths and target must both end in dimension 2")
+    batch = np.broadcast_shapes(lengths.shape[:-1], target.shape[:-1])
+    lengths = np.broadcast_to(lengths, batch + (2,))
+    target = np.broadcast_to(target, batch + (2,))
+    if np.any(lengths <= 0):
+        raise ValueError("link lengths must be positive")
+    l1, l2 = lengths[..., 0], lengths[..., 1]
+    x, y = target[..., 0], target[..., 1]
+    c2_raw = (x * x + y * y - l1 * l1 - l2 * l2) / (2.0 * l1 * l2)
+    reachable = (c2_raw >= -1.0 - reachability_eps) & (c2_raw <= 1.0 + reachability_eps)
+    c2 = np.clip(c2_raw, -1.0, 1.0)
+    s2 = np.sqrt(np.maximum(1.0 - c2 * c2, 0.0))
+    q2_positive = np.arctan2(s2, c2)
+    q2_negative = np.arctan2(-s2, c2)
+
+    def q1_for(q2: NDArray[np.floating]) -> NDArray[np.floating]:
+        return np.arctan2(y, x) - np.arctan2(l2 * np.sin(q2), l1 + l2 * np.cos(q2))
+
+    positive = np.stack((q1_for(q2_positive), q2_positive), axis=-1)
+    negative = np.stack((q1_for(q2_negative), q2_negative), axis=-1)
+    solutions = np.stack((positive, negative), axis=-2)
+    return np.where(reachable[..., None, None], solutions, np.nan), reachable
+
+
+def damped_least_squares_step(
+    jacobian: ArrayLike, error: ArrayLike, damping: float = 0.05
+) -> NDArray[np.floating]:
+    """Compute ``J.T (J J.T + lambda^2 I)^-1 error``."""
+    j = _float_array(jacobian)
+    e = _float_array(error)
+    if j.ndim < 2 or e.ndim == 0 or j.shape[-2] != e.shape[-1]:
+        raise ValueError("jacobian must be (..., M, N) and error (..., M)")
+    identity = np.eye(j.shape[-2], dtype=j.dtype)
+    system = j @ np.swapaxes(j, -1, -2) + damping * damping * identity
+    solved = np.linalg.solve(system, e[..., None])
+    return (np.swapaxes(j, -1, -2) @ solved)[..., 0]
+
+
+def within_joint_limits(joint_values: ArrayLike, lower: ArrayLike, upper: ArrayLike) -> NDArray[np.bool_]:
+    q, low, high = np.broadcast_arrays(_float_array(joint_values), _float_array(lower), _float_array(upper))
+    if q.shape[-1:] == ():
+        raise ValueError("joint values must have a joint dimension")
+    return np.all((q >= low) & (q <= high), axis=-1)
+
+
+def planar_2r_ik_dls(
+    lengths: ArrayLike,
+    target: ArrayLike,
+    initial: ArrayLike,
+    *,
+    damping: float = 0.05,
+    step_size: float = 1.0,
+    max_iterations: int = 100,
+    tolerance: float = 1e-6,
+    joint_limits: tuple[ArrayLike, ArrayLike] | None = None,
+) -> tuple[NDArray[np.floating], NDArray[np.bool_], NDArray[np.floating]]:
+    """Iteratively solve planar 2R position IK with damped least squares."""
+    lengths = _float_array(lengths)
+    target = _float_array(target)
+    q = _float_array(initial).copy()
+    if lengths.shape[-1:] != (2,) or target.shape[-1:] != (2,) or q.shape[-1:] != (2,):
+        raise ValueError("lengths, target and initial must all end in dimension 2")
+    batch = np.broadcast_shapes(lengths.shape[:-1], target.shape[:-1], q.shape[:-1])
+    lengths = np.broadcast_to(lengths, batch + (2,))
+    target = np.broadcast_to(target, batch + (2,))
+    q = np.broadcast_to(q, batch + (2,)).copy()
+    if joint_limits is not None:
+        lower = np.broadcast_to(_float_array(joint_limits[0]), batch + (2,))
+        upper = np.broadcast_to(_float_array(joint_limits[1]), batch + (2,))
+        if np.any(lower > upper):
+            raise ValueError("joint lower limits must not exceed upper limits")
+    for _ in range(max_iterations):
+        position = planar_2r_fk(lengths, q)[..., -1, :]
+        error = target - position
+        if np.all(np.linalg.norm(error, axis=-1) <= tolerance):
+            break
+        q += step_size * damped_least_squares_step(planar_2r_jacobian(lengths, q), error, damping)
+        if joint_limits is not None:
+            q = np.clip(q, lower, upper)
+    final_error = np.linalg.norm(target - planar_2r_fk(lengths, q)[..., -1, :], axis=-1)
+    return q, final_error <= tolerance, final_error

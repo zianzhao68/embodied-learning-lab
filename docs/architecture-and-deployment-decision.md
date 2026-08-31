@@ -130,6 +130,8 @@ robotics-lib/
 └─ tests/
 ```
 
+`robotics-lib` 的 NumPy/PyTorch 后端保持同名 API：正运动学、解析 2R IK、位置 Jacobian、阻尼最小二乘迭代和关节限位检查。不可达解析目标不会被静默裁剪成边界成功结果，而是返回 NaN 候选与独立 `reachable` 状态；迭代求解同时返回关节角、收敛状态和最终误差。
+
 ## 6. 实施与待确认项
 
 - 仓库已调整为公开：`https://github.com/zianzhao68/embodied-learning-lab`。
