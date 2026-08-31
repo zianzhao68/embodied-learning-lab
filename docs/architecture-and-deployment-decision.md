@@ -114,6 +114,14 @@ videos/
 └─ <topic>/
    ├─ storyboard.md
    └─ *.py
+
+rotation-lib/
+├─ src/embodied_spatial/
+│  ├─ numpy.py
+│  └─ torch.py
+├─ tests/
+├─ examples/
+└─ artifacts/
 ```
 
 ## 6. 实施与待确认项
