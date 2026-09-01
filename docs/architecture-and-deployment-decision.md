@@ -138,7 +138,7 @@ vision-lib/
 
 `robotics-lib` 的 NumPy/PyTorch 后端保持同名 API：正运动学、解析 2R IK、位置 Jacobian、阻尼最小二乘迭代和关节限位检查。不可达解析目标不会被静默裁剪成边界成功结果，而是返回 NaN 候选与独立 `reachable` 状态；迭代求解同时返回关节角、收敛状态和最终误差。
 
-`vision-lib` 的 NumPy/PyTorch 后端采用 OpenCV 光学坐标约定，提供内参构造、相机点投影、像素与 z-depth 反投影、像素射线、外参点变换和 FOV/焦距换算。无效或非正深度返回 NaN 输出与独立 `valid` 状态。
+`vision-lib` 的 NumPy/PyTorch 后端采用 OpenCV 光学坐标约定，提供内参构造、相机点投影、像素与 z-depth 反投影、像素射线、外参点变换、FOV/焦距换算、整图 z-depth/range 点云化，以及 resize/crop 后的内参更新。无效或非正深度返回 NaN 输出与独立 `valid` 状态；点云 API 可保留 H×W×3 有组织结构或展平为 N×3。
 
 ## 6. 实施与待确认项
 

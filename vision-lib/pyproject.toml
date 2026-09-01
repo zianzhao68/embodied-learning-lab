@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "embodied-vision"
-version = "0.1.0"
-description = "Tested NumPy and PyTorch pinhole camera geometry utilities"
+version = "0.2.0"
+description = "Tested NumPy and PyTorch camera, depth-image and point-cloud geometry utilities"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = ["numpy>=1.26"]

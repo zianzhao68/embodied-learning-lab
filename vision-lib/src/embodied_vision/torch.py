@@ -119,3 +119,92 @@ def focal_length_from_fov(image_extent_px: Tensor, field_of_view_rad: Tensor) ->
     if torch.any(extent <= 0).item() or torch.any(fov <= 0).item() or torch.any(fov >= torch.pi).item():
         raise ValueError("image extent must be positive and field of view must be in (0, pi)")
     return 0.5 * extent / torch.tan(0.5 * fov)
+
+
+def depth_image_to_points(
+    depth: Tensor,
+    intrinsics: Tensor,
+    *,
+    min_depth: float = 1e-8,
+    flatten: bool = False,
+) -> tuple[Tensor, Tensor]:
+    depth = _float_tensor(depth)
+    if depth.ndim < 2:
+        raise ValueError("depth must have shape (..., H, W)")
+    height, width = depth.shape[-2:]
+    v, u = torch.meshgrid(
+        torch.arange(height, dtype=depth.dtype, device=depth.device),
+        torch.arange(width, dtype=depth.dtype, device=depth.device),
+        indexing="ij",
+    )
+    pixels = torch.stack((u, v), dim=-1).expand(depth.shape + (2,))
+    points, valid = unproject_pixels(pixels, depth, intrinsics, min_depth=min_depth)
+    if flatten:
+        points = points.reshape(depth.shape[:-2] + (height * width, 3))
+        valid = valid.reshape(depth.shape[:-2] + (height * width,))
+    return points, valid
+
+
+def range_image_to_points(
+    distance: Tensor,
+    intrinsics: Tensor,
+    *,
+    min_range: float = 1e-8,
+    flatten: bool = False,
+) -> tuple[Tensor, Tensor]:
+    distance = _float_tensor(distance)
+    if distance.ndim < 2:
+        raise ValueError("distance must have shape (..., H, W)")
+    height, width = distance.shape[-2:]
+    v, u = torch.meshgrid(
+        torch.arange(height, dtype=distance.dtype, device=distance.device),
+        torch.arange(width, dtype=distance.dtype, device=distance.device),
+        indexing="ij",
+    )
+    pixels = torch.stack((u, v), dim=-1).expand(distance.shape + (2,))
+    rays = pixel_rays(pixels, intrinsics, unit=True)
+    valid = torch.isfinite(distance) & (distance > min_range)
+    points = rays * distance.unsqueeze(-1)
+    points = torch.where(valid[..., None], points, torch.full_like(points, torch.nan))
+    if flatten:
+        points = points.reshape(distance.shape[:-2] + (height * width, 3))
+        valid = valid.reshape(distance.shape[:-2] + (height * width,))
+    return points, valid
+
+
+def rescale_intrinsics(intrinsics: Tensor, scale_x: Tensor, scale_y: Tensor) -> Tensor:
+    k = _float_tensor(intrinsics)
+    if k.shape[-2:] != (3, 3):
+        raise ValueError("intrinsics must have shape (..., 3, 3)")
+    sx = _float_tensor(scale_x).to(k)
+    sy = _float_tensor(scale_y).to(k)
+    sx, sy = torch.broadcast_tensors(sx, sy)
+    try:
+        batch = torch.broadcast_shapes(k.shape[:-2], sx.shape)
+    except RuntimeError as exc:
+        raise ValueError("scales must broadcast with intrinsic batches") from exc
+    k = torch.broadcast_to(k, batch + (3, 3)).clone()
+    sx, sy = torch.broadcast_to(sx, batch), torch.broadcast_to(sy, batch)
+    row0 = k[..., 0, :] * sx[..., None]
+    row1 = k[..., 1, :] * sy[..., None]
+    return torch.stack((row0, row1, k[..., 2, :]), dim=-2)
+
+
+def crop_intrinsics(intrinsics: Tensor, left: Tensor, top: Tensor) -> Tensor:
+    k = _float_tensor(intrinsics)
+    if k.shape[-2:] != (3, 3):
+        raise ValueError("intrinsics must have shape (..., 3, 3)")
+    left = _float_tensor(left).to(k)
+    top = _float_tensor(top).to(k)
+    left, top = torch.broadcast_tensors(left, top)
+    try:
+        batch = torch.broadcast_shapes(k.shape[:-2], left.shape)
+    except RuntimeError as exc:
+        raise ValueError("crop offsets must broadcast with intrinsic batches") from exc
+    k = torch.broadcast_to(k, batch + (3, 3)).clone()
+    left, top = torch.broadcast_to(left, batch), torch.broadcast_to(top, batch)
+    cx = k[..., 0, 2] - left
+    cy = k[..., 1, 2] - top
+    row0 = torch.stack((k[..., 0, 0], k[..., 0, 1], cx), dim=-1)
+    row1 = torch.stack((k[..., 1, 0], k[..., 1, 1], cy), dim=-1)
+    return torch.stack((row0, row1, k[..., 2, :]), dim=-2)

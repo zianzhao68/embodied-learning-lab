@@ -452,5 +452,80 @@ export const quizzes: Record<string, QuizQuestion[]> = {
       explain: '几何错误常来自分辨率、坐标顺序、深度定义、畸变/对齐和外参方向；模型规模不能修复错误约定。',
       multiple: true
     }
+  ],
+  'depth-image-point-cloud': [
+    {
+      question: '几何像素写作 $(u,v)$ 时，NumPy 深度数组通常怎样索引？',
+      options: ['depth[u,v]', 'depth[v,u]', 'depth[X,Z]', 'depth[Z,u]'],
+      answer: [1],
+      explain: 'u 是列、v 是行；数组通常先行后列，所以写 depth[v,u]。'
+    },
+    {
+      question: '深度原始值 1250 的单位是毫米，换成米是多少？',
+      options: ['1250 m', '12.5 m', '1.25 m', '0.125 m'],
+      answer: [2],
+      explain: '毫米转米乘 0.001：1250×0.001=1.25 m。'
+    },
+    {
+      question: '$f_x=f_y=2$ px、主点 $(1,1)$，像素 $(2,1)$ 的 z-depth 为 1 m，对应相机点是什么？',
+      options: ['(0.5,0,1) m', '(2,1,1) m', '(1,0.5,1) m', '(0,0,1) m'],
+      answer: [0],
+      explain: 'X=(2−1)×1/2=0.5，Y=(1−1)×1/2=0，Z=1。'
+    },
+    {
+      question: '有组织点云 $H\times W\times3$ 的主要优点是什么？',
+      options: ['每个三维点仍能追溯到原像素位置', '永远没有无效点', '自动包含三角网格', '不需要相机内参'],
+      answer: [0],
+      explain: 'P[v,u] 与 depth[v,u]、RGB[v,u] 保持对应，便于 mask 和检测框映射；无效位置仍需 mask。'
+    },
+    {
+      question: '深度值 0 或 NaN 通常应怎样处理？',
+      options: ['当作光心处的真实表面', '通过 valid mask 标记无效，不参与几何算法', '统一改成 1 m', '取绝对值'],
+      answer: [1],
+      explain: '0/NaN 通常表示缺测；伪造深度会在光心或固定平面产生错误点。'
+    },
+    {
+      question: 'z-depth 与 range 的区别是什么？',
+      options: ['二者在所有像素都完全相同', 'z-depth 是沿光轴分量，range 是沿斜射线的欧氏距离', 'z-depth 单位是像素', 'range 只表示颜色'],
+      answer: [1],
+      explain: '中心射线两者相同；离中心后 range 是斜边，通常大于同一点的 Z。'
+    },
+    {
+      question: '射线方向 $(0.5,0,1)$，若给定 z-depth $Z=2$ m，三维点与 range 分别是什么？',
+      options: ['点 (1,0,2) m，range 约 2.236 m', '点 (0.5,0,1) m，range 2 m', '点 (1,0,2) m，range 2 m', '点 (2,0,2) m，range 4 m'],
+      answer: [0],
+      explain: '点为 Z(0.5,0,1)=(1,0,2)，欧氏距离 √(1²+2²)=√5≈2.236 m。'
+    },
+    {
+      question: 'RGB[v,u] 与 depth[v,u] 什么时候可以直接组合颜色和三维点？',
+      options: ['只要数组宽高相同', '只有它们已被标定并对齐到同一相机/像素射线', '只要都显示为彩色', '不需要任何条件'],
+      answer: [1],
+      explain: '不同 RGB/depth 光心存在外参和遮挡差异；相同数组索引不自动代表同一空间射线。'
+    },
+    {
+      question: '图像宽高都缩小为原来一半，简单像素缩放约定下内参怎样更新？',
+      options: ['$f_x,f_y,c_x,c_y$ 都乘 0.5', '只有焦距乘 2', '内参完全不变', '主点变成 0'],
+      answer: [0],
+      explain: '像素坐标整体缩放时，两方向焦距和主点坐标都按对应比例缩放。'
+    },
+    {
+      question: '从左边裁掉 100 列、顶部裁掉 40 行时，主点怎样更新？',
+      options: ['$c_x\leftarrow c_x-100, c_y\leftarrow c_y-40$', '$c_x,c_y$ 都加裁剪量', '焦距减裁剪量', '主点不变'],
+      answer: [0],
+      explain: '新图坐标原点向右下移动，所以同一主点在新图中的编号分别减 left 和 top。'
+    },
+    {
+      question: '相机点云供机械臂抓取前，还需要什么？',
+      options: ['直接把 camera 坐标当关节角', '用 $T_{base\leftarrow camera}$ 转换到机器人 base，并检查标定方向', '删除所有 Z', '只把单位改成像素'],
+      answer: [1],
+      explain: '反投影输出 camera 表达；机器人规划通常要求 base 表达，必须使用正确手眼/TF 变换。'
+    },
+    {
+      question: '点云出现整体尺度或倾斜错误时，应检查哪些项目？（多选）',
+      options: ['深度单位与 depth scale', 'z-depth/range 定义', '图像缩放/裁剪后 K 是否更新', 'u/v 与行列顺序', 'camera↔base 变换方向', '只调大体素尺寸'],
+      answer: [0, 1, 2, 3, 4],
+      explain: '尺度、深度定义、内参、索引和外参都会造成系统性几何错误；体素尺寸只能改变采样密度。',
+      multiple: true
+    }
   ]
 }

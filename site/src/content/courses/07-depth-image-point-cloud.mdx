@@ -1,0 +1,565 @@
+---
+title: 深度图与点云：把每个像素放回三维
+slug: depth-image-point-cloud
+order: 7
+phase: 视觉几何
+description: 从一张写着距离的方格纸开始，逐像素反投影深度图，理解有组织点云、z-depth/range、无效值、RGB 对齐与 base 坐标变换。
+duration: 170–210 分钟
+level: 基础
+tags:
+  - 深度图
+  - 点云
+  - RGB-D
+published: true
+---
+
+import CourseVideo from '../../components/CourseVideo.astro'
+
+# 深度图与点云：把每个像素放回三维
+
+<div class="lead">上一课中，一个像素只能确定一条射线，缺少深度就不知道物体在射线上的哪个位置。深度相机给每个像素补上一个距离数字。本课将从一张 3×3 的“小深度表格”开始，把每个格子一步步恢复成三维点，再扩展到真实 RGB-D 图像和机器人 base 坐标系。</div>
+
+## 本课目标
+
+- 解释深度图每个数组元素的物理含义、索引顺序和单位；
+- 区分 z-depth、沿射线 range，以及用于显示的伪彩色图；
+- 手算 3×3 深度图中多个像素对应的三维点；
+- 区分有组织点云 $H\times W\times3$ 与过滤后的 $N\times3$；
+- 正确处理 0、NaN、负值、超量程和 RGB/depth 未对齐；
+- 使用 NumPy/PyTorch 批量反投影，并将 camera 点云转换到 robot base。
+
+## 先备知识
+
+需要理解上一课的两个公式：
+
+$$
+X=(u-c_x)\frac{Z}{f_x},
+\qquad
+Y=(v-c_y)\frac{Z}{f_y}
+$$
+
+如果还不熟，请先记住自然语言版本：
+
+1. 像素决定从相机出发的射线方向；
+2. 深度决定沿这条射线走多远；
+3. 内参决定每个像素对应的射线有多斜。
+
+> **本课约定**：深度数组写作 $D[v,u]$，先行 v、后列 u；默认值是沿相机 z 轴的 z-depth，单位 m。相机光学坐标 x 向右、y 向下、z 向前。
+
+## 01 · 深度图是一张“每格写着深度”的表格
+
+**先记一句话：普通 RGB 图每格存颜色，深度图每格存距离。**
+
+一张高度 H、宽度 W 的深度图可以写成：
+
+$$
+\mathbf D\in\mathbb R^{H\times W}
+$$
+
+数组元素：
+
+$$
+Z=D[v,u]
+$$
+
+表示像素 $(u,v)$ 对应的前向深度。
+
+注意索引顺序：
+
+- 几何坐标通常说 $(u,v)$，先水平列、后竖直行；
+- NumPy/PyTorch 图像数组通常写 `[v, u]`，先行、后列。
+
+这两个顺序不矛盾，但非常容易写反。
+
+### 深度图显示出来为什么像灰度或彩虹图
+
+真实深度值可能是 0.4 m、1.2 m、3.7 m。为了让人眼看清，软件常把数值映射为灰度或伪彩色。屏幕颜色只是可视化，不是新的距离值。
+
+<div class="warning"><strong>不要从截图颜色读取深度：</strong>必须使用原始浮点/整数深度数组和对应比例因子。伪彩色图经过截断和归一化，通常不能精确反算。</div>
+
+## 02 · 第一步永远是确认单位和无效值
+
+**先记一句话：深度数字没有单位说明，就不能直接进入几何公式。**
+
+常见存储：
+
+- 浮点米：`1.25` 表示 1.25 m；
+- 整数毫米：`1250` 表示 1250 mm，需要乘 $0.001$ 变成 1.25 m；
+- 设备原始单位：需要读取 `depth_scale`；
+- 归一化网络输出：可能只有相对深度，不具备真实米制尺度。
+
+统一到米：
+
+$$
+Z_{\mathrm m}=sD_{\mathrm{raw}}
+$$
+
+其中 s 是单位比例。例如毫米转米时 $s=0.001$ m/mm。
+
+### 哪些值通常无效
+
+- 0：很多设备表示没有测到；
+- NaN/Inf：数值无效；
+- 负数：正常物理深度不应为负；
+- 小于设备最小量程；
+- 大于设备最大量程；
+- 置信度低或被传感器标记无效。
+
+构造掩码：
+
+$$
+M[v,u]
+=
+\operatorname{isfinite}(D[v,u])
+\land
+Z_{\min}<D[v,u]<Z_{\max}
+$$
+
+M 是布尔数组，不是新的深度。它只记录哪些位置可以参与后续计算。
+
+## 03 · 从一个像素恢复一个三维点
+
+**先记一句话：减主点、除焦距得到射线斜率，再乘该像素深度。**
+
+对像素 $(u,v)$ 和 z-depth $Z=D[v,u]$：
+
+<div class="formula-focus">
+
+$$
+\begin{aligned}
+X&=(u-c_x)\frac{Z}{f_x}\\
+Y&=(v-c_y)\frac{Z}{f_y}\\
+Z&=D[v,u]
+\end{aligned}
+$$
+
+</div>
+
+输出：
+
+$$
+{}^{\mathrm{camera}}\mathbf p[v,u]
+=
+(X,Y,Z)^{\mathsf T}\ \mathrm m
+$$
+
+每个有效像素得到一个三维点。把所有像素都做一次，就是深度图到点云。
+
+## 04 · 3×3 完整手算：从九个格子到九个点
+
+**先记一句话：先用极小图手算，才能看懂真实图上的向量化程序。**
+
+### 原始输入
+
+设深度图：
+
+$$
+\mathbf D=
+\begin{bmatrix}
+1&1&1\\
+1&2&1\\
+1&1&1
+\end{bmatrix}\ \mathrm m
+$$
+
+图像宽高均为 3，像素坐标是 0、1、2。内参：
+
+$$
+f_x=f_y=2\ \mathrm{px},
+\qquad(c_x,c_y)=(1,1)\ \mathrm{px}
+$$
+
+主点正好是中心像素 $(1,1)$。
+
+<figure class="diagram-card wide-diagram">
+  <img src="../../assets/07-depth-grid-to-cloud.svg" alt="三乘三深度图逐像素反投影为有组织三维点云，中心像素深度两米，其余一米" />
+  <figcaption>左侧是输入数组，右侧是同样保持像素拓扑的 H×W×3 点云。中心点深度更大，因此沿中心射线放得更远。</figcaption>
+</figure>
+
+### 例 A：中心像素 $(u,v)=(1,1)$
+
+查深度：
+
+$$
+Z=D[1,1]=2\ \mathrm m
+$$
+
+水平坐标：
+
+$$
+X=(1-1)\frac{2}{2}=0\ \mathrm m
+$$
+
+竖直坐标：
+
+$$
+Y=(1-1)\frac{2}{2}=0\ \mathrm m
+$$
+
+输出：
+
+$$
+{}^{\mathrm{camera}}\mathbf p[1,1]=(0,0,2)^{\mathsf T}\ \mathrm m
+$$
+
+直觉检查：中心像素就在光轴上，所以 X、Y 都应为 0。
+
+### 例 B：中心右边像素 $(u,v)=(2,1)$
+
+查数组时写 `D[1,2]`：
+
+$$
+Z=D[1,2]=1\ \mathrm m
+$$
+
+$$
+X=(2-1)\frac{1}{2}=0.5\ \mathrm m
+$$
+
+$$
+Y=(1-1)\frac{1}{2}=0\ \mathrm m
+$$
+
+输出：
+
+$$
+{}^{\mathrm{camera}}\mathbf p[1,2]=(0.5,0,1)^{\mathsf T}\ \mathrm m
+$$
+
+直觉检查：像素在主点右侧，所以 X 为正；与主点同行，所以 Y=0。
+
+### 例 C：左上角像素 $(u,v)=(0,0)$
+
+$$
+Z=D[0,0]=1\ \mathrm m
+$$
+
+$$
+X=(0-1)\frac{1}{2}=-0.5\ \mathrm m
+$$
+
+$$
+Y=(0-1)\frac{1}{2}=-0.5\ \mathrm m
+$$
+
+输出：
+
+$$
+{}^{\mathrm{camera}}\mathbf p[0,0]=(-0.5,-0.5,1)^{\mathsf T}\ \mathrm m
+$$
+
+直觉检查：左上角对应 $X<0$、$Y<0$，符合本课 x 右、y 下约定。
+
+### 反算验收
+
+把点 $(0.5,0,1)$ 投影回去：
+
+$$
+u=2\times0.5/1+1=2
+$$
+
+$$
+v=2\times0/1+1=1
+$$
+
+回到原像素 $(2,1)$，说明索引、单位和内参一致。
+
+## 05 · 有组织点云与普通 N×3 点云
+
+**先记一句话：有组织点云保留像素格结构，普通点云只保留有效点列表。**
+
+对 H×W 深度图直接反投影，最自然的输出是：
+
+$$
+\mathbf P_{\mathrm{organized}}
+\in\mathbb R^{H\times W\times3}
+$$
+
+其中 `P[v,u]` 就是深度像素 `D[v,u]` 的三维点。优点：
+
+- 容易与 RGB 像素、分割 mask 对齐；
+- 容易查某个检测框对应哪些三维点；
+- 邻近像素关系仍然存在；
+- 无效位置可保留 NaN 和 valid mask。
+
+过滤并展平后：
+
+$$
+\mathbf P_{\mathrm{valid}}
+\in\mathbb R^{N\times3},
+\qquad N\le HW
+$$
+
+适合 KD-tree、聚类、配准和几何网络。
+
+<figure class="diagram-card wide-diagram">
+  <img src="../../assets/07-organized-filter-flatten.svg" alt="深度图中的零和 NaN 先在有组织点云中保留无效位置，再通过同一个 valid mask 过滤为 N×3 点列表" />
+  <figcaption>先保留对应关系，再按任务过滤。给点附颜色时，点和颜色必须使用同一 mask 和相同展平顺序。</figcaption>
+</figure>
+
+<div class="warning"><strong>点云不是表面本身：</strong>点云只是离散采样点集合，没有自动包含三角面、法向、物体身份或遮挡后的结构。这些都需要后续估计或模型。</div>
+
+## 06 · z-depth 与 range 不能混用
+
+**先记一句话：z-depth 是直角边，range 是斜边。**
+
+对非中心像素，射线方向为：
+
+$$
+\mathbf r=(x_{\mathrm n},y_{\mathrm n},1)^{\mathsf T}
+$$
+
+### 如果输入是 z-depth Z
+
+$$
+\mathbf p=Z\mathbf r
+$$
+
+因为射线第三个分量是 1，乘 Z 后点的 z 坐标恰好是 Z。
+
+### 如果输入是 range ρ
+
+先单位化射线：
+
+$$
+\hat{\mathbf r}
+=\frac{\mathbf r}{\lVert\mathbf r\rVert_2}
+$$
+
+再乘沿射线距离：
+
+$$
+\mathbf p=\rho\hat{\mathbf r}
+$$
+
+<figure class="diagram-card wide-diagram">
+  <img src="../../assets/07-zdepth-vs-range.svg" alt="斜射线上的点分别以沿光轴的 z-depth 和从光心到点的 range 表示，展示两者在图像边缘不同" />
+  <figcaption>中心像素射线与 z 轴重合，两种数值相同；离中心越远，差异越明显。</figcaption>
+</figure>
+
+### 数值对比
+
+若归一化射线为 $(0.5,0,1)$：
+
+- 给定 z-depth $Z=2$ m，点为 $(1,0,2)$ m，range 为 $\sqrt5\approx2.236$ m；
+- 给定 range $\rho=2$ m，先除以 $\sqrt{1.25}$，得到点约 $(0.894,0,1.789)$ m。
+
+两者输入数字都写“2 m”，恢复出的三维点却不同。
+
+## 07 · 为什么深度边缘经常有洞和飞点
+
+**先记一句话：RGB 边缘、深度边缘和传感器视角不完全一致，边界最容易测错。**
+
+常见原因：
+
+- 红外/深度相机与 RGB 相机位置不同，存在遮挡差异；
+- 亮面、透明、黑色吸光材料让测距失败；
+- 物体边缘一个像素混合前景和背景；
+- 双目匹配在无纹理区域不稳定；
+- 超出最小/最大量程；
+- 运动造成 RGB 与 depth 时间不同步。
+
+处理原则：
+
+1. 保留原始 valid mask；
+2. 根据设备量程裁剪；
+3. 对目标区域使用中值或鲁棒统计，而不是只取单像素；
+4. 边缘侵蚀可减少前后景混合；
+5. 记录过滤前后点数，避免“过滤到空”仍继续抓取；
+6. 不要用 0 m 填洞后当成真实表面。
+
+## 08 · RGB 与 depth 对齐是什么意思
+
+**先记一句话：只有对齐后，RGB[v,u] 和 depth[v,u] 才看向同一条场景射线。**
+
+RGB-D 设备可能有两个不同光心：RGB 镜头和深度镜头。原始 RGB 像素 $(u,v)$ 与原始 depth 像素 $(u,v)$ 不一定对应同一个空间点。
+
+“深度对齐到 RGB”通常包含：
+
+1. 用深度内参把深度像素恢复成深度相机三维点；
+2. 用 depth→RGB 外参变换到 RGB 相机；
+3. 用 RGB 内参重新投影；
+4. 处理多个点落到同一 RGB 像素的 z-buffer 和空洞。
+
+只有完成这条链，才能安全地把检测 mask 与深度逐像素结合。
+
+<figure class="diagram-card wide-diagram">
+  <img src="../../assets/07-rgbd-to-base-chain.svg" alt="RGB 和对齐深度通过同一像素和内参生成带颜色 camera 点云，再通过 base 从 camera 的变换得到机器人 base 点云" />
+  <figcaption>颜色和深度先解决像素对齐，再解决 camera 到 base 的坐标转换。这是两个不同问题。</figcaption>
+</figure>
+
+## 09 · 图像缩放或裁剪后必须更新内参
+
+**先记一句话：像素坐标变了，描述像素映射的 K 也必须一起变。**
+
+### 缩放
+
+图像宽度乘 $s_x$，高度乘 $s_y$：
+
+$$
+f_x'=s_xf_x,
+\quad c_x'=s_xc_x
+$$
+
+$$
+f_y'=s_yf_y,
+\quad c_y'=s_yc_y
+$$
+
+例如 640×480 缩为 320×240，$s_x=s_y=0.5$。原 $f_x=500,c_x=320$ 变为 $250,160$。
+
+### 裁剪
+
+从左边裁掉 L 列、从顶部裁掉 T 行：
+
+$$
+c_x'=c_x-L,
+\qquad c_y'=c_y-T
+$$
+
+焦距不因单纯裁剪改变。
+
+<div class="insight"><strong>实现约定：</strong>不同 resize 库对像素中心和 `align_corners` 有细微差异。本课 API 使用“像素坐标整体按比例缩放”的简单约定；做亚像素高精度标定时必须匹配实际图像采样规则。</div>
+
+## 10 · 从 camera 点云变到机器人 base
+
+**先记一句话：反投影只得到 camera 表达，机械臂抓取通常需要 base 表达。**
+
+对每个 camera 点：
+
+$$
+{}^{\mathrm{base}}\mathbf p
+=
+{}^{\mathrm{base}}\mathbf R_{\mathrm{camera}}
+{}^{\mathrm{camera}}\mathbf p
++
+{}^{\mathrm{base}}\mathbf t_{\mathrm{camera}}
+$$
+
+或使用齐次变换：
+
+$$
+{}^{\mathrm{base}}\mathbf T_{\mathrm{camera}}
+\equiv
+\mathbf T_{\mathrm{base}\leftarrow\mathrm{camera}}
+$$
+
+操作顺序：
+
+1. 先在 camera 系可视化，确认桌面、物体和光轴方向正常；
+2. 再应用 camera→base 变换；
+3. 在 base 系检查桌面高度、机器人左右方向和已知标定点；
+4. 不要用“看起来差不多”代替数值标定验收。
+
+<CourseVideo
+  title="动画详解：深度格子怎样展开成三维点云"
+  duration="19 秒"
+  src="../../videos/07-depth-image-point-cloud.mp4"
+  poster="../../assets/07-depth-image-point-cloud-poster.png"
+  caption="从 3×3 深度表格开始，让每个像素沿自己的射线移动到指定 Z；随后保留无效 mask、展平有效点，并把 camera 点云整体变换到 base。"
+/>
+
+## 11 · 深度误差怎样影响三维点
+
+**先记一句话：深度误差不仅影响 Z，也按像素离主点的距离影响 X、Y。**
+
+由：
+
+$$
+X=x_{\mathrm n}Z,
+\qquad Y=y_{\mathrm n}Z
+$$
+
+若深度有小误差 $\delta Z$：
+
+$$
+\delta X\approx x_{\mathrm n}\delta Z,
+\qquad
+\delta Y\approx y_{\mathrm n}\delta Z
+$$
+
+中心附近 $x_{\mathrm n},y_{\mathrm n}$ 小，横向误差较小；图像边缘射线更斜，同样深度误差带来更大横向误差。
+
+此外，像素误差 $\delta u$ 对 X 的近似影响：
+
+$$
+\delta X\approx\frac{Z}{f_x}\delta u
+$$
+
+物体越远，同样 1 px 检测误差对应越大的米制横向误差。
+
+例：$Z=2$ m、$f_x=500$ px、像素误差 1 px：
+
+$$
+\delta X\approx2/500=0.004\ \mathrm m=4\ \mathrm{mm}
+$$
+
+这解释了远距离小目标抓取为什么更敏感。
+
+## 12 · 点云过滤与降采样的顺序
+
+**先记一句话：先去掉明显无效和任务外点，再做降采样；每一步都记录点数。**
+
+典型流程：
+
+1. finite + 深度量程 mask；
+2. 图像 ROI 或分割 mask；
+3. camera/base 空间裁剪框；
+4. 统计离群点过滤；
+5. 体素降采样（voxel downsampling）；
+6. 后续平面、聚类、法向或抓取算法。
+
+体素降采样把空间划成小立方格，每格保留代表点。体素越大，点越少、速度越快，但小物体和边缘细节会丢失。
+
+不要在不知道单位时设置体素尺寸。`0.01` 若单位是米表示 1 cm；若点云实际仍是毫米，含义会完全错误。
+
+## 13 · NumPy/PyTorch 动手实验
+
+`vision-lib` 新增：
+
+- `depth_image_to_points`：z-depth 图转有组织/展平点云；
+- `range_image_to_points`：沿射线 range 图转点云；
+- `rescale_intrinsics`：缩放图像后更新 K；
+- `crop_intrinsics`：裁剪图像后更新主点。
+
+```python
+import numpy as np
+from embodied_vision import numpy as cam
+
+K = cam.make_intrinsics(2.0, 2.0, 1.0, 1.0)
+depth = np.array([
+    [1.0, 1.0, 1.0],
+    [1.0, 2.0, 1.0],
+    [1.0, 1.0, 1.0],
+])
+
+organized, valid = cam.depth_image_to_points(depth, K)
+print(organized[1, 1])  # [0. 0. 2.]
+print(organized[1, 2])  # [0.5 0. 1.]
+
+points, valid_flat = cam.depth_image_to_points(depth, K, flatten=True)
+points = points[valid_flat]
+```
+
+运行全部 29 项视觉几何测试：
+
+```powershell
+cd D:\vla\vision-lib
+python -m pip install -e .
+python -m unittest discover -s tests -v
+```
+
+<div class="warning"><strong>故障注入：</strong>把网格构造从 `(u,v)` 故意交换成 `(v,u)`，用非正方形深度图观察哪些测试失败；恢复后，再把毫米深度忘记乘 0.001，观察点云尺度如何放大 1000 倍。</div>
+
+## 本课小结
+
+- 深度图是 H×W 数组，几何像素写 $(u,v)$，数组索引写 `[v,u]`；
+- 先确认米/毫米、z-depth/range、量程和无效值；
+- 每个有效像素通过内参和深度恢复一个 camera 三维点；
+- 有组织点云保留像素对应，N×3 点云适合通用几何算法；
+- z-depth 是光轴分量，range 是射线斜边，边缘像素不能混用；
+- RGB 与 depth 必须经过内外参对齐后才能共享像素；
+- 图像缩放、裁剪后必须同步更新 K；
+- camera 点云需经 ${}^{\mathrm{base}}\mathbf T_{\mathrm{camera}}$ 才能用于机器人；
+- 深度误差和像素误差都会随距离传播到三维位置；
+- 投影—反投影、点数统计、已知平面和坐标链闭环是核心诊断工具。

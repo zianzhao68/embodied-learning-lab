@@ -131,3 +131,82 @@ def focal_length_from_fov(image_extent_px: ArrayLike, field_of_view_rad: ArrayLi
     if np.any(extent <= 0) or np.any(fov <= 0) or np.any(fov >= np.pi):
         raise ValueError("image extent must be positive and field of view must be in (0, pi)")
     return 0.5 * extent / np.tan(0.5 * fov)
+
+
+def depth_image_to_points(
+    depth: ArrayLike,
+    intrinsics: ArrayLike,
+    *,
+    min_depth: float = 1e-8,
+    flatten: bool = False,
+) -> tuple[NDArray[np.floating], NDArray[np.bool_]]:
+    """Unproject a z-depth image to an organized or flattened point cloud."""
+    depth = _float_array(depth)
+    if depth.ndim < 2:
+        raise ValueError("depth must have shape (..., H, W)")
+    height, width = depth.shape[-2:]
+    u, v = np.meshgrid(np.arange(width, dtype=depth.dtype), np.arange(height, dtype=depth.dtype))
+    pixels = np.stack((u, v), axis=-1)
+    pixels = np.broadcast_to(pixels, depth.shape + (2,))
+    points, valid = unproject_pixels(pixels, depth, intrinsics, min_depth=min_depth)
+    if flatten:
+        points = points.reshape(depth.shape[:-2] + (height * width, 3))
+        valid = valid.reshape(depth.shape[:-2] + (height * width,))
+    return points, valid
+
+
+def range_image_to_points(
+    distance: ArrayLike,
+    intrinsics: ArrayLike,
+    *,
+    min_range: float = 1e-8,
+    flatten: bool = False,
+) -> tuple[NDArray[np.floating], NDArray[np.bool_]]:
+    """Back-project per-pixel Euclidean range, not z-depth."""
+    distance = _float_array(distance)
+    if distance.ndim < 2:
+        raise ValueError("distance must have shape (..., H, W)")
+    height, width = distance.shape[-2:]
+    u, v = np.meshgrid(np.arange(width, dtype=distance.dtype), np.arange(height, dtype=distance.dtype))
+    pixels = np.broadcast_to(np.stack((u, v), axis=-1), distance.shape + (2,))
+    rays = pixel_rays(pixels, intrinsics, unit=True)
+    valid = np.isfinite(distance) & (distance > min_range)
+    points = rays * distance[..., None]
+    points = np.where(valid[..., None], points, np.nan)
+    if flatten:
+        points = points.reshape(distance.shape[:-2] + (height * width, 3))
+        valid = valid.reshape(distance.shape[:-2] + (height * width,))
+    return points, valid
+
+
+def rescale_intrinsics(intrinsics: ArrayLike, scale_x: ArrayLike, scale_y: ArrayLike) -> NDArray[np.floating]:
+    """Scale pixel coordinates and the first/second rows of K consistently."""
+    k = _float_array(intrinsics).copy()
+    if k.shape[-2:] != (3, 3):
+        raise ValueError("intrinsics must have shape (..., 3, 3)")
+    sx, sy = np.broadcast_arrays(_float_array(scale_x), _float_array(scale_y))
+    try:
+        batch = np.broadcast_shapes(k.shape[:-2], sx.shape)
+    except ValueError as exc:
+        raise ValueError("scales must broadcast with intrinsic batches") from exc
+    k = np.broadcast_to(k, batch + (3, 3)).copy()
+    sx, sy = np.broadcast_to(sx, batch), np.broadcast_to(sy, batch)
+    k[..., 0, :] *= sx[..., None]
+    k[..., 1, :] *= sy[..., None]
+    return k
+
+
+def crop_intrinsics(intrinsics: ArrayLike, left: ArrayLike, top: ArrayLike) -> NDArray[np.floating]:
+    """Update the principal point after cropping ``left`` columns and ``top`` rows."""
+    k = _float_array(intrinsics).copy()
+    if k.shape[-2:] != (3, 3):
+        raise ValueError("intrinsics must have shape (..., 3, 3)")
+    left, top = np.broadcast_arrays(_float_array(left), _float_array(top))
+    try:
+        batch = np.broadcast_shapes(k.shape[:-2], left.shape)
+    except ValueError as exc:
+        raise ValueError("crop offsets must broadcast with intrinsic batches") from exc
+    k = np.broadcast_to(k, batch + (3, 3)).copy()
+    k[..., 0, 2] -= np.broadcast_to(left, batch)
+    k[..., 1, 2] -= np.broadcast_to(top, batch)
+    return k

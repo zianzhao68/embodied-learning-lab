@@ -8,4 +8,4 @@ except ImportError:
     torch = None  # type: ignore[assignment]
 
 __all__ = ["numpy", "torch"]
-__version__ = "0.1.0"
+__version__ = "0.2.0"
